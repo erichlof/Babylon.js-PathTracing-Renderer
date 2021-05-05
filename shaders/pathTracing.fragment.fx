@@ -38,7 +38,7 @@ precision highp sampler2D;
 #define METALCOAT 18
 
 // built-in Varyings
-in vec2 vUV;
+//in vec2 vUV;
 
 // Samplers
 uniform sampler2D textureSampler;
@@ -696,6 +696,13 @@ void main(void)
 	
 	// perform path tracing and get resulting pixel color
 	vec4 currentPixel = vec4( vec3(CalculateRadiance(ray, objectNormal, objectColor, objectID, pixelSharpness)), 0.0 );
+	
+	vec4 previousPixel = texelFetch(textureSampler, ivec2(gl_FragCoord.xy), 0);
 
-        glFragColor = vec4(currentPixel.rgb, 1.0);
+	if (uFrameCounter == 1.0) // camera just moved after being still
+	{
+		previousPixel = vec4(0); // clear rendering accumulation buffer
+	}
+
+        glFragColor = vec4(currentPixel.rgb + previousPixel.rgb, 1.0);
 }
