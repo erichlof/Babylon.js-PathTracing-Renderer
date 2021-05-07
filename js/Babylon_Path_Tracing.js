@@ -940,7 +940,8 @@ engine.runRenderLoop(function ()
 	}
 
 	uOneOverSampleCounter = 1.0 / uSampleCounter;
-	// this is necessary to update the user's world camera movement - should take no time at all
+
+	// the following is necessary to update the user's world camera movement - should take no time at all
 	pathTracingScene.render();
 	// now for the heavy lifter, the bulk of the frame time
 	eRenderer.render(pathTracing_eWrapper, pathTracingRenderTarget);
@@ -948,7 +949,7 @@ engine.runRenderLoop(function ()
 	eRenderer.render(screenCopy_eWrapper, screenCopyRenderTarget);
 	// finally take the accumulated pathTracingRenderTarget buffer and average by numberOfSamples taken, then apply Reinhard tonemapping (brings image into friendly 0.0-1.0 rgb color float range),
 	// and lastly raise to the power of (0.4545), in order to make gamma correction (gives more brightness range where it counts).  This last step should also take minimal time
-	eRenderer.render(screenOutput_eWrapper, null);
+	eRenderer.render(screenOutput_eWrapper, null); // null, because we don't feed this non-linear image-processed output back into the pathTracing accumulation buffer as it would 'pollute' the pathtracing unbounded linear color space
 });
 
 
