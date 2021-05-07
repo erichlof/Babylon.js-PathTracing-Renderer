@@ -1,11 +1,37 @@
 let canvas, engine, pathTracingScene;
+let isPaused = true;
 let sceneIsDynamic = false;
 let camera, oldCameraMatrix, newCameraMatrix;
+let camFlightSpeed; // scene specific, depending on scene size dimensions
 let cameraRecentlyMoving = false;
 let windowIsBeingResized = false;
 let timeInSeconds = 0.0;
+let frameTime = 0.0;
 let newWidth, newHeight;
 let nm, om;
+let increaseFOV = false;
+let decreaseFOV = false;
+let uApertureSize; // scene specific, depending on scene size dimensions
+let increaseAperture = false;
+let decreaseAperture = false;
+let apertureChangeAmount; // scene specific, depending on scene size dimensions
+let uFocusDistance; // scene specific, depending on scene size dimensions
+let increaseFocusDist = false;
+let decreaseFocusDist = false;
+let focusDistChangeAmount; // scene specific, depending on scene size dimensions
+let mouseControl = true;
+let cameraDirectionVector = new BABYLON.Vector3(); //for moving where the camera is looking
+let cameraRightVector = new BABYLON.Vector3(); //for strafing the camera right and left
+let cameraUpVector = new BABYLON.Vector3(); //for moving camera up and down
+
+// common required uniforms
+let uTime = 0.0;
+let uFrameCounter = 1.0; // 1 instead of 0 because it is used as a rng() seed in pathtracing shader
+let uSampleCounter = 0.0; // will get increased by 1 in animation loop before rendering
+let uOneOverSampleCounter = 0.0; // the sample accumulation buffer gets multiplied by this reciprocal of SampleCounter, for averaging final pixel color 
+let uULen = 1.0; // rendering pixel horizontal scale, related to camera's FOV and aspect ratio
+let uVLen = 1.0; // rendering pixel vertical scale, related to camera's FOV
+let uCameraIsMoving = false;
 
 BABYLON.Effect.ShadersStore["screenCopyFragmentShader"] = `
 #version 300 es
@@ -110,6 +136,8 @@ uniform float uTime;
 uniform float uFrameCounter;
 uniform float uSampleCounter;
 uniform float uEPS_intersect;
+uniform float uApertureSize;
+uniform float uFocusDistance;
 uniform bool uCameraIsMoving;
 
 // Demo-specific Uniforms
@@ -732,10 +760,6 @@ void main(void)
 
 	vec3 rayDir = normalize( pixelPos.x * camRight * uULen + pixelPos.y * camUp * uVLen + camForward );
 
-	// temp, TODO hook up with uniforms
-	float uApertureSize = 0.0;
-	float uFocusDistance = 100.0;
-
 	// depth of field
 	vec3 focalPoint = uFocusDistance * rayDir;
 	float randomAngle = rng() * TWO_PI; // pick random point on aperture
@@ -773,6 +797,75 @@ void main(void)
 	glFragColor = vec4(previousPixel.rgb + currentPixel.rgb, 1.0);
 }
 `;
+
+const KEYCODE_NAMES = {
+	65: 'a', 66: 'b', 67: 'c', 68: 'd', 69: 'e', 70: 'f', 71: 'g', 72: 'h', 73: 'i', 74: 'j', 75: 'k', 76: 'l', 77: 'm',
+	78: 'n', 79: 'o', 80: 'p', 81: 'q', 82: 'r', 83: 's', 84: 't', 85: 'u', 86: 'v', 87: 'w', 88: 'x', 89: 'y', 90: 'z',
+	37: 'left', 38: 'up', 39: 'right', 40: 'down', 32: 'space', 33: 'pageup', 34: 'pagedown', 9: 'tab',
+	189: 'dash', 187: 'equals', 188: 'comma', 190: 'period', 27: 'escape', 13: 'enter'
+}
+let KeyboardState = {
+	a: false, b: false, c: false, d: false, e: false, f: false, g: false, h: false, i: false, j: false, k: false, l: false, m: false,
+	n: false, o: false, p: false, q: false, r: false, s: false, t: false, u: false, v: false, w: false, x: false, y: false, z: false,
+	left: false, up: false, right: false, down: false, space: false, pageup: false, pagedown: false, tab: false,
+	dash: false, equals: false, comma: false, period: false, escape: false, enter: false
+}
+
+function onKeyDown(event)
+{
+	event.preventDefault();
+
+	KeyboardState[KEYCODE_NAMES[event.keyCode]] = true;
+}
+
+function onKeyUp(event)
+{
+	event.preventDefault();
+
+	KeyboardState[KEYCODE_NAMES[event.keyCode]] = false;
+}
+
+function keyPressed(keyName)
+{
+	return KeyboardState[keyName];
+}
+
+function onMouseWheel(event)
+{
+	// if (isPaused)
+	// 	return;
+
+	// use the following instead, because event.preventDefault() gives errors in console
+	event.stopPropagation();
+
+	if (event.deltaY > 0)
+	{
+		increaseFOV = true;
+	}
+	else if (event.deltaY < 0)
+	{
+		decreaseFOV = true;
+	}
+}
+
+if ('ontouchstart' in window)
+{
+	mouseControl = false;
+	// TODO: instantiate my custom 'MobileJoystickControls' or similar Babylon solution?
+}
+
+if (mouseControl)
+{
+	window.addEventListener('wheel', onMouseWheel, false);
+}
+
+// SCENE/DEMO-SPECIFIC PARAMETERS
+camFlightSpeed = 300; // scene specific, depending on scene size dimensions
+uApertureSize = 0.0; // aperture size at beginning of app
+uFocusDistance = 530.0; // initial focus distance from camera in scene - scene specific, depending on scene size dimensions
+const uEPS_intersect = mouseControl ? 0.01 : 1.0; // less precision on mobile - also both values are scene-size dependent
+apertureChangeAmount = 20; // scene specific, depending on scene size dimensions
+focusDistChangeAmount = 5; // scene specific, depending on scene size dimensions
 
 
 canvas = document.getElementById("renderCanvas");
@@ -837,8 +930,6 @@ const screenOutput_eWrapper = new BABYLON.EffectWrapper({
 	name: "screenOutputEffectWrapper"
 });
 
-let uOneOverSampleCounter = 0.0;
-
 screenOutput_eWrapper.onApplyObservable.add(() =>
 {
 	screenOutput_eWrapper.effect.setTexture("accumulationBuffer", pathTracingRenderTarget);
@@ -849,18 +940,10 @@ screenOutput_eWrapper.onApplyObservable.add(() =>
 const pathTracing_eWrapper = new BABYLON.EffectWrapper({
 	engine: engine,
 	fragmentShader: BABYLON.Effect.ShadersStore["pathTracingFragmentShader"],
-	uniformNames: ["uResolution", "uULen", "uVLen", "uTime", "uFrameCounter", "uEPS_intersect", "uCameraMatrix", "uCameraIsMoving"],
+	uniformNames: ["uResolution", "uULen", "uVLen", "uTime", "uFrameCounter", "uEPS_intersect", "uCameraMatrix", "uApertureSize", "uFocusDistance", "uCameraIsMoving"],
 	samplerNames: ["previousBuffer"],
 	name: "pathTracingEffectWrapper"
 });
-
-let uTime = 0.0;
-let uFrameCounter = 1.0;
-let uSampleCounter = 1.0;
-let uULen = 1.0;
-let uVLen = 1.0;
-let uCameraIsMoving = false;
-const uEPS_intersect = 0.01;
 
 pathTracing_eWrapper.onApplyObservable.add(() =>
 {
@@ -875,6 +958,8 @@ pathTracing_eWrapper.onApplyObservable.add(() =>
 	pathTracing_eWrapper.effect.setFloat("uFrameCounter", uFrameCounter);
 	pathTracing_eWrapper.effect.setFloat("uSampleCounter", uSampleCounter);
 	pathTracing_eWrapper.effect.setFloat("uEPS_intersect", uEPS_intersect);
+	pathTracing_eWrapper.effect.setFloat("uApertureSize", uApertureSize);
+	pathTracing_eWrapper.effect.setFloat("uFocusDistance", uFocusDistance);
 	pathTracing_eWrapper.effect.setBool("uCameraIsMoving", uCameraIsMoving);
 	pathTracing_eWrapper.effect.setMatrix("uCameraMatrix", camera.getWorldMatrix());
 });
@@ -890,6 +975,19 @@ function getElapsedTimeInSeconds()
 // Register a render loop to repeatedly render the scene
 engine.runRenderLoop(function ()
 {
+	if (isPaused && engine.isPointerLock)
+	{
+		document.addEventListener('keydown', onKeyDown, false);
+		document.addEventListener('keyup', onKeyUp, false);
+		isPaused = false;
+	}
+	if (!isPaused && !engine.isPointerLock)
+	{
+		document.removeEventListener('keydown', onKeyDown, false);
+		document.removeEventListener('keyup', onKeyUp, false);
+		isPaused = true;
+	}
+
 	// reset cameraIsMoving flag
 	uCameraIsMoving = false;
 
@@ -900,6 +998,8 @@ engine.runRenderLoop(function ()
 	}
 
 	uTime = getElapsedTimeInSeconds();
+
+	frameTime = engine.getDeltaTime() * 0.001;
 
 	// my own optimized way of telling if the camera has moved or not
 	newCameraMatrix.copyFrom(camera.getWorldMatrix());
@@ -915,7 +1015,119 @@ engine.runRenderLoop(function ()
 	// save camera state for next frame's comparison
 	oldCameraMatrix.copyFrom(newCameraMatrix);
 
+	// get current camera orientation basis vectors
+	cameraDirectionVector.set(-nm[8], -nm[9], -nm[10]);
+	cameraDirectionVector.normalize();
+	cameraUpVector.set(nm[4], nm[5], nm[6]);
+	cameraUpVector.normalize();
+	cameraRightVector.set(nm[0], nm[1], nm[2]);
+	cameraRightVector.normalize();
+
+	// check for user input
+	if (keyPressed('w') && !keyPressed('s'))
+	{
+		camera.position.addInPlace(cameraDirectionVector.scaleToRef(camFlightSpeed * frameTime, cameraDirectionVector));
+	}
+	if (keyPressed('s') && !keyPressed('w'))
+	{
+		camera.position.subtractInPlace(cameraDirectionVector.scaleToRef(camFlightSpeed * frameTime, cameraDirectionVector));
+	}
+	if (keyPressed('a') && !keyPressed('d'))
+	{
+		camera.position.subtractInPlace(cameraRightVector.scaleToRef(camFlightSpeed * frameTime, cameraRightVector));
+	}
+	if (keyPressed('d') && !keyPressed('a'))
+	{
+		camera.position.addInPlace(cameraRightVector.scaleToRef(camFlightSpeed * frameTime, cameraRightVector));
+	}
+	if (keyPressed('e') && !keyPressed('q'))
+	{
+		camera.position.addInPlace(cameraUpVector.scaleToRef(camFlightSpeed * frameTime, cameraUpVector));
+	}
+	if (keyPressed('q') && !keyPressed('e'))
+	{
+		camera.position.subtractInPlace(cameraUpVector.scaleToRef(camFlightSpeed * frameTime, cameraUpVector));
+	}
+
+	if (keyPressed('equals') && !keyPressed('dash'))
+	{
+		increaseFocusDist = true;
+	}
+	if (keyPressed('dash') && !keyPressed('equals'))
+	{
+		decreaseFocusDist = true;
+	}
+	if (keyPressed('period') && !keyPressed('comma'))
+	{
+		increaseAperture = true;
+	}
+	if (keyPressed('comma') && !keyPressed('period'))
+	{
+		decreaseAperture = true;
+	}
+
 	// now update uniforms that are common to all scenes
+	if (increaseFOV)
+	{
+		camera.fov += (Math.PI / 180);
+		if (camera.fov > 150 * (Math.PI / 180))
+			camera.fov = 150 * (Math.PI / 180);
+
+		uVLen = Math.tan(camera.fov * 0.5);
+		uULen = uVLen * (width / height);
+
+		uCameraIsMoving = true;
+		increaseFOV = false;
+	}
+	if (decreaseFOV)
+	{
+		camera.fov -= (Math.PI / 180);
+		if (camera.fov < 1 * (Math.PI / 180))
+			camera.fov = 1 * (Math.PI / 180);
+
+		uVLen = Math.tan(camera.fov * 0.5);
+		uULen = uVLen * (width / height);
+
+		uCameraIsMoving = true;
+		decreaseFOV = false;
+	}
+
+	if (increaseFocusDist)
+	{
+		uFocusDistance += focusDistChangeAmount;
+		
+		uCameraIsMoving = true;
+		increaseFocusDist = false;
+	}
+	if (decreaseFocusDist)
+	{
+		uFocusDistance -= focusDistChangeAmount;
+		if (uFocusDistance < 1)
+			uFocusDistance = 1;
+		
+		uCameraIsMoving = true;
+		decreaseFocusDist = false;
+	}
+
+	if (increaseAperture)
+	{
+		uApertureSize += apertureChangeAmount;
+		if (uApertureSize > 100000.0)
+			uApertureSize = 100000.0;
+		
+		uCameraIsMoving = true;
+		increaseAperture = false;
+	}
+	if (decreaseAperture)
+	{
+		uApertureSize -= apertureChangeAmount;
+		if (uApertureSize < 0.0)
+			uApertureSize = 0.0;
+		
+		uCameraIsMoving = true;
+		decreaseAperture = false;
+	}
+
 	if (!uCameraIsMoving)
 	{
 		if (sceneIsDynamic)
