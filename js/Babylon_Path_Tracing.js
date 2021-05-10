@@ -391,16 +391,21 @@ void SetupScene(void)
 {
 	vec3 light_emissionColor = vec3(1.0, 1.0, 1.0) * 10.0; // Bright white light
 
-	spheres[0] = Sphere( 90.0, vec3(150.0,  91.0, 200.0), vec3(1.0, 1.0, 0.0), CLEARCOAT_DIFFUSE ); // clearCoat diffuse Sphere Left
-	spheres[1] = Sphere( 90.0, vec3(400.0,  91.0, 200.0), vec3(1.0, 1.0, 1.0),       TRANSPARENT ); // glass Sphere Right
+	float sphereRadius = 16.0;
+	float wallRadius = 50.0;
+	float lightRadius = wallRadius * 0.2;
 
-	quads[0] = Quad( vec3( 0, 0,-1), vec3(  0.0,   0.0, 559.2), vec3(  0.0, 548.8, 559.2), vec3(549.6, 548.8, 559.2), vec3(549.6,   0.0, 559.2), vec3( 1.0,  1.0,  1.0), DIFFUSE ); // Back Wall
-	quads[1] = Quad( vec3( 1, 0, 0), vec3(  0.0,   0.0,   0.0), vec3(  0.0, 548.8,   0.0), vec3(  0.0, 548.8, 559.2), vec3(  0.0,   0.0, 559.2), vec3( 0.7, 0.05, 0.05), DIFFUSE ); // Left Wall Red
-	quads[2] = Quad( vec3(-1, 0, 0), vec3(549.6,   0.0, 559.2), vec3(549.6, 548.8, 559.2), vec3(549.6, 548.8,   0.0), vec3(549.6,   0.0,   0.0), vec3(0.05, 0.05,  0.7), DIFFUSE ); // Right Wall Blue
-	quads[3] = Quad( vec3( 0,-1, 0), vec3(  0.0, 548.8,   0.0), vec3(549.6, 548.8,   0.0), vec3(549.6, 548.8, 559.2), vec3(  0.0, 548.8, 559.2), vec3( 1.0,  1.0,  1.0), DIFFUSE ); // Ceiling
-	quads[4] = Quad( vec3( 0, 1, 0), vec3(  0.0,   0.0, 559.2), vec3(549.6,   0.0, 559.2), vec3(549.6,   0.0,   0.0), vec3(  0.0,   0.0,   0.0), vec3( 1.0,  1.0,  1.0), DIFFUSE ); // Floor
+	spheres[0] = Sphere( sphereRadius, vec3(-wallRadius*0.45, -wallRadius + sphereRadius + 0.1, -wallRadius*0.2), vec3(1.0, 1.0, 0.0), CLEARCOAT_DIFFUSE ); // clearCoat diffuse Sphere Left
+	spheres[1] = Sphere( sphereRadius, vec3( wallRadius*0.45, -wallRadius + sphereRadius + 0.1, -wallRadius*0.2), vec3(1.0, 1.0, 1.0),       TRANSPARENT ); // glass Sphere Right
+ 
+	
+	quads[0] = Quad( vec3( 0, 0, 1), vec3(-wallRadius, wallRadius, wallRadius), vec3( wallRadius, wallRadius, wallRadius), vec3( wallRadius,-wallRadius, wallRadius), vec3(-wallRadius,-wallRadius, wallRadius), vec3( 1.0,  1.0,  1.0), DIFFUSE);// Back Wall
+	quads[1] = Quad( vec3( 1, 0, 0), vec3(-wallRadius,-wallRadius, wallRadius), vec3(-wallRadius,-wallRadius,-wallRadius), vec3(-wallRadius, wallRadius,-wallRadius), vec3(-wallRadius, wallRadius, wallRadius), vec3( 0.7, 0.05, 0.05), DIFFUSE);// Left Wall Red
+	quads[2] = Quad( vec3(-1, 0, 0), vec3( wallRadius,-wallRadius,-wallRadius), vec3( wallRadius,-wallRadius, wallRadius), vec3( wallRadius, wallRadius, wallRadius), vec3( wallRadius, wallRadius,-wallRadius), vec3(0.05, 0.05,  0.7), DIFFUSE);// Right Wall Blue
+	quads[3] = Quad( vec3( 0,-1, 0), vec3(-wallRadius, wallRadius,-wallRadius), vec3( wallRadius, wallRadius,-wallRadius), vec3( wallRadius, wallRadius, wallRadius), vec3(-wallRadius, wallRadius, wallRadius), vec3( 1.0,  1.0,  1.0), DIFFUSE);// Ceiling
+	quads[4] = Quad( vec3( 0, 1, 0), vec3(-wallRadius,-wallRadius, wallRadius), vec3( wallRadius,-wallRadius, wallRadius), vec3( wallRadius,-wallRadius,-wallRadius), vec3(-wallRadius,-wallRadius,-wallRadius), vec3( 1.0,  1.0,  1.0), DIFFUSE);// Floor
 
-	quads[5] = Quad( vec3( 0,-1, 0), vec3(213.0, 548.0, 227.0), vec3(343.0, 548.0, 227.0), vec3(343.0, 548.0, 332.0), vec3(213.0, 548.0, 332.0),    light_emissionColor,   LIGHT ); // Area Light Rectangle in ceiling
+	quads[5] = Quad( vec3( 0,-1, 0), vec3(-lightRadius, wallRadius-1.0,-lightRadius), vec3(lightRadius, wallRadius-1.0,-lightRadius), vec3(lightRadius, wallRadius-1.0, lightRadius), vec3(-lightRadius, wallRadius-1.0, lightRadius), light_emissionColor, LIGHT);// Area Light Rectangle in ceiling
 
 } // end void SetupScene(void)
 
@@ -471,15 +476,6 @@ if (mouseControl)
 	window.addEventListener('wheel', onMouseWheel, false);
 }
 
-// SCENE/DEMO-SPECIFIC PARAMETERS
-camFlightSpeed = 300; // scene specific, depending on scene size dimensions
-uApertureSize = 0.0; // aperture size at beginning of app
-uFocusDistance = 530.0; // initial focus distance from camera in scene - scene specific, depending on scene size dimensions
-const uEPS_intersect = mouseControl ? 0.01 : 1.0; // less precision on mobile - also both values are scene-size dependent
-apertureChangeAmount = 20; // scene specific, depending on scene size dimensions
-focusDistChangeAmount = 5; // scene specific, depending on scene size dimensions
-
-
 canvas = document.getElementById("renderCanvas");
 engine = new BABYLON.Engine(canvas, true);
 // scale image by 2, which is half the work for GPU to do (BABYLON later calculates: 1/scalingLevel = amount of GPU task)
@@ -497,9 +493,19 @@ pathTracingScene.onPointerDown = evt =>
 }
 
 // Add a camera to the scene and attach it to the canvas
-camera = new BABYLON.UniversalCamera("Camera", new BABYLON.Vector3(278, 170, -350), pathTracingScene);
+camera = new BABYLON.UniversalCamera("Camera", new BABYLON.Vector3(), pathTracingScene);
+
+// SCENE/DEMO-SPECIFIC PARAMETERS
+camera.position.set(0, -20, -120);
 camera.inertia = 0;
 camera.angularSensibility = 500;
+camFlightSpeed = 100; // scene specific, depending on scene size dimensions
+uApertureSize = 0.0; // aperture size at beginning of app
+uFocusDistance = 113.0; // initial focus distance from camera in scene - scene specific, depending on scene size dimensions
+const uEPS_intersect = mouseControl ? 0.01 : 0.1; // less precision on mobile - also both values are scene-size dependent
+apertureChangeAmount = 2; // scene specific, depending on scene size dimensions
+focusDistChangeAmount = 1; // scene specific, depending on scene size dimensions
+
 
 oldCameraMatrix = new BABYLON.Matrix;
 newCameraMatrix = new BABYLON.Matrix;
