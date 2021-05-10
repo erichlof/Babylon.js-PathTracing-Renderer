@@ -723,16 +723,16 @@ void SetupScene(void)
 	vec3 z  = vec3(0);// No color value, Black
 	vec3 L1 = vec3(1.0, 1.0, 1.0) * 10.0;// Bright light
 
-	spheres[0] = Sphere( 90.0, vec3(150.0,  91.0, -200.0),  z, vec3(1), COAT ); // Sphere Left
-	spheres[1] = Sphere( 90.0, vec3(400.0,  91.0, -200.0),  z, vec3(1), REFR ); // Sphere Right
+	spheres[0] = Sphere( 90.0, vec3(150.0,  91.0, 200.0),  z, vec3(1), COAT ); // Sphere Left
+	spheres[1] = Sphere( 90.0, vec3(400.0,  91.0, 200.0),  z, vec3(1), REFR ); // Sphere Right
 
-	quads[0] = Quad( vec3( 0.0, 0.0, 1.0), vec3(  0.0,   0.0,-559.2), vec3(549.6,   0.0,-559.2), vec3(549.6, 548.8,-559.2), vec3(  0.0, 548.8,-559.2), z, vec3( 1.0,  1.0,  1.0), DIFF);// Back Wall
-	quads[1] = Quad( vec3( 1.0, 0.0, 0.0), vec3(  0.0,   0.0,   0.0), vec3(  0.0,   0.0,-559.2), vec3(  0.0, 548.8,-559.2), vec3(  0.0, 548.8,   0.0), z, vec3( 0.7, 0.05, 0.05), DIFF);// Left Wall Red
-	quads[2] = Quad( vec3(-1.0, 0.0, 0.0), vec3(549.6,   0.0,-559.2), vec3(549.6,   0.0,   0.0), vec3(549.6, 548.8,   0.0), vec3(549.6, 548.8,-559.2), z, vec3(0.05, 0.05, 0.7 ), DIFF);// Right Wall Blue
-	quads[3] = Quad( vec3( 0.0,-1.0, 0.0), vec3(  0.0, 548.8,-559.2), vec3(549.6, 548.8,-559.2), vec3(549.6, 548.8,   0.0), vec3(  0.0, 548.8,   0.0), z, vec3( 1.0,  1.0,  1.0), DIFF);// Ceiling
-	quads[4] = Quad( vec3( 0.0, 1.0, 0.0), vec3(  0.0,   0.0,   0.0), vec3(549.6,   0.0,   0.0), vec3(549.6,   0.0,-559.2), vec3(  0.0,   0.0,-559.2), z, vec3( 1.0,  1.0,  1.0), DIFF);// Floor
+	quads[0] = Quad( vec3( 0, 0,-1), vec3(  0.0,   0.0, 559.2), vec3(  0.0, 548.8, 559.2), vec3(549.6, 548.8, 559.2), vec3(549.6,   0.0, 559.2), z, vec3( 1.0,  1.0,  1.0), DIFF);// Back Wall
+	quads[1] = Quad( vec3( 1, 0, 0), vec3(  0.0,   0.0,   0.0), vec3(  0.0, 548.8,   0.0), vec3(  0.0, 548.8, 559.2), vec3(  0.0,   0.0, 559.2), z, vec3( 0.7, 0.05, 0.05), DIFF);// Left Wall Red
+	quads[2] = Quad( vec3(-1, 0, 0), vec3(549.6,   0.0, 559.2), vec3(549.6, 548.8, 559.2), vec3(549.6, 548.8,   0.0), vec3(549.6,   0.0,   0.0), z, vec3(0.05, 0.05, 0.7 ), DIFF);// Right Wall Blue
+	quads[3] = Quad( vec3( 0,-1, 0), vec3(  0.0, 548.8,   0.0), vec3(549.6, 548.8,   0.0), vec3(549.6, 548.8, 559.2), vec3(  0.0, 548.8, 559.2), z, vec3( 1.0,  1.0,  1.0), DIFF);// Ceiling
+	quads[4] = Quad( vec3( 0, 1, 0), vec3(  0.0,   0.0, 559.2), vec3(549.6,   0.0, 559.2), vec3(549.6,   0.0,   0.0), vec3(  0.0,   0.0,   0.0), z, vec3( 1.0,  1.0,  1.0), DIFF);// Floor
 
-	quads[5] = Quad( vec3( 0.0,-1.0, 0.0), vec3(213.0, 548.0,-332.0), vec3(343.0, 548.0,-332.0), vec3(343.0, 548.0,-227.0), vec3(213.0, 548.0,-227.0), L1, z, LIGHT);// Area Light Rectangle in ceiling
+	quads[5] = Quad( vec3( 0,-1, 0), vec3(213.0, 548.0, 227.0), vec3(343.0, 548.0, 227.0), vec3(343.0, 548.0, 332.0), vec3(213.0, 548.0, 332.0), L1, z, LIGHT);// Area Light Rectangle in ceiling
 }
 
 
@@ -746,7 +746,7 @@ void main(void)
         // vec2 texelSize = vec2(1.0 / uResolution.x, 1.0 / uResolution.y);
         vec3 camRight       = vec3( uCameraMatrix[0][0],  uCameraMatrix[0][1],  uCameraMatrix[0][2]);
 	vec3 camUp          = vec3( uCameraMatrix[1][0],  uCameraMatrix[1][1],  uCameraMatrix[1][2]);
-	vec3 camForward     = vec3(-uCameraMatrix[2][0], -uCameraMatrix[2][1], -uCameraMatrix[2][2]);
+	vec3 camForward     = vec3( uCameraMatrix[2][0],  uCameraMatrix[2][1],  uCameraMatrix[2][2]);
 	vec3 cameraPosition = vec3( uCameraMatrix[3][0],  uCameraMatrix[3][1],  uCameraMatrix[3][2]);
 
 	// calculate unique seed for rng() function
@@ -832,8 +832,8 @@ function keyPressed(keyName)
 
 function onMouseWheel(event)
 {
-	// if (isPaused)
-	// 	return;
+	if (isPaused)
+		return;
 
 	// use the following instead, because event.preventDefault() gives errors in console
 	event.stopPropagation();
@@ -877,9 +877,6 @@ engine.setHardwareScalingLevel(2); // default scalingLevel is 1. You can try sca
 
 // Create the scene space
 pathTracingScene = new BABYLON.Scene(engine);
-// coming from THREE.js, I'm more comfortable with a Right-handed coordinate system, so...
-//  +X:(1,0,0) pointing to the right, +Y:(0,1,0) pointing up, and +Z:(0,0,1) pointing out of the screen towards you
-pathTracingScene.useRightHandedSystem = true;
 
 // enable browser's mouse pointer lock feature, for free-look camera controlled by mouse movement
 pathTracingScene.onPointerDown = evt =>
@@ -888,9 +885,10 @@ pathTracingScene.onPointerDown = evt =>
 }
 
 // Add a camera to the scene and attach it to the canvas
-camera = new BABYLON.UniversalCamera("Camera", new BABYLON.Vector3(278, 170, 350), pathTracingScene);
-// I'm not sure why, but this next line is necessary because the camera was facing away from my path traced scene.  Maybe because of the handedness change above?
-camera.rotation.y += Math.PI;
+camera = new BABYLON.UniversalCamera("Camera", new BABYLON.Vector3(278, 170, -350), pathTracingScene);
+camera.inertia = 0;
+camera.angularSensibility = 500;
+
 oldCameraMatrix = new BABYLON.Matrix;
 newCameraMatrix = new BABYLON.Matrix;
 camera.attachControl(canvas, true);
@@ -1016,7 +1014,7 @@ engine.runRenderLoop(function ()
 	oldCameraMatrix.copyFrom(newCameraMatrix);
 
 	// get current camera orientation basis vectors
-	cameraDirectionVector.set(-nm[8], -nm[9], -nm[10]);
+	cameraDirectionVector.set(nm[8], nm[9], nm[10]);
 	cameraDirectionVector.normalize();
 	cameraUpVector.set(nm[4], nm[5], nm[6]);
 	cameraUpVector.normalize();
