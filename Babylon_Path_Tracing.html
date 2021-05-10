@@ -30,10 +30,13 @@
 		<canvas id="renderCanvas" touch-action="none"></canvas> <!-- touch-action="none" for best results from PEP -->
 		
 		<!-- use this uncompressed version of the library while debugging -->
-		<!-- <script src="js/babylon.max.js"></script>  -->
+		<script src="js/babylon.max.js"></script> 
 
 		<!-- use this minified version of the library for deployment -->
-		<script src="js/babylon.js"></script> 
+		<!-- <script src="js/babylon.js"></script>  -->
+
+		<!-- this is the required demo/scene-specific setup .js file for each pathtraced scene -->
+		<script src="js/PathTracingLibraryIncludes.js"> </script>
 
 		<!-- this is the required demo/scene-specific setup .js file for each pathtraced scene -->
 		<script src="js/Babylon_Path_Tracing.js"> </script>
