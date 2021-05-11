@@ -287,7 +287,6 @@ void main(void) // if the scene is static and doesn't have any special requireme
 	randNumber = 0.0; // the final randomly-generated number (range: 0.0 to 1.0)
 	randVec4 = vec4(0); // on each animation frame, it samples and holds the RGBA blueNoise texture value for this pixel 
 	randVec4 = texelFetch(blueNoiseTexture, ivec2(mod(gl_FragCoord.xy + floor(uRandomVec2 * 256.0), 256.0)), 0);
-	//randVec4 = texelFetch(blueNoiseTexture, ivec2(gl_FragCoord.xy + vec2(uFrameCounter)), 0);
 
 	//vec2 pixelOffset = vec2(0);
 	vec2 pixelOffset = vec2( tentFilter(rng()), tentFilter(rng()) );
