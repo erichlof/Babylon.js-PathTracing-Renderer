@@ -23,15 +23,18 @@ let mouseControl = true;
 let cameraDirectionVector = new BABYLON.Vector3(); //for moving where the camera is looking
 let cameraRightVector = new BABYLON.Vector3(); //for strafing the camera right and left
 let cameraUpVector = new BABYLON.Vector3(); //for moving camera up and down
+let blueNoiseTexture;
 
 // common required uniforms
-let uTime = 0.0;
+let uRandomVec2 = new BABYLON.Vector2(); // used to offset the texture UV when sampling the blueNoiseTexture for smooth randomness - this vec2 is updated/changed every animation frame
+let uTime = 0.0; // elapsed time in seconds since the app started
 let uFrameCounter = 1.0; // 1 instead of 0 because it is used as a rng() seed in pathtracing shader
 let uSampleCounter = 0.0; // will get increased by 1 in animation loop before rendering
 let uOneOverSampleCounter = 0.0; // the sample accumulation buffer gets multiplied by this reciprocal of SampleCounter, for averaging final pixel color 
 let uULen = 1.0; // rendering pixel horizontal scale, related to camera's FOV and aspect ratio
 let uVLen = 1.0; // rendering pixel vertical scale, related to camera's FOV
-let uCameraIsMoving = false;
+let uCameraIsMoving = false; // lets the path tracer know if the camera is being moved 
+
 
 
 BABYLON.Effect.ShadersStore["screenCopyFragmentShader"] = `
@@ -256,7 +259,7 @@ vec3 CalculateRadiance( Ray r, out vec3 objectNormal, out vec3 objectColor, out 
 
 			bounceIsSpecular = false;
 
-			if (diffuseCount == 1 && rng() < 0.5)
+			if (diffuseCount == 1 && blueNoise_rand() < 0.5)
 			{
 				r = Ray( x, randomCosWeightedDirectionInHemisphere(nl) );
 				r.origin += nl * uEPS_intersect;
@@ -300,7 +303,7 @@ vec3 CalculateRadiance( Ray r, out vec3 objectNormal, out vec3 objectColor, out 
                 	RP = Re / P;
                 	TP = Tr / (1.0 - P);
 
-			if (rng() < P)
+			if (blueNoise_rand() < P)
 			{
 				mask *= RP;
 				r = Ray( x, reflect(r.direction, nl) ); // reflect ray from surface
@@ -344,7 +347,7 @@ vec3 CalculateRadiance( Ray r, out vec3 objectNormal, out vec3 objectColor, out 
                 	RP = Re / P;
                 	TP = Tr / (1.0 - P);
 
-			if (rng() < P)
+			if (blueNoise_rand() < P)
 			{
 				mask *= RP;
 				r = Ray( x, reflect(r.direction, nl) ); // reflect ray from surface
@@ -358,7 +361,7 @@ vec3 CalculateRadiance( Ray r, out vec3 objectNormal, out vec3 objectColor, out 
 
 			bounceIsSpecular = false;
 
-			if (diffuseCount == 1 && rng() < 0.5)
+			if (diffuseCount == 1 && blueNoise_rand() < 0.5)
 			{
 				// choose random Diffuse sample vector
 				r = Ray( x, randomCosWeightedDirectionInHemisphere(nl) );
@@ -513,6 +516,19 @@ camera.attachControl(canvas, true);
 
 let width = engine.getRenderWidth(), height = engine.getRenderHeight();
 
+blueNoiseTexture = new BABYLON.Texture("./textures/BlueNoise_RGBA256.png", 
+					pathTracingScene, 
+					true, 
+					false, 
+					BABYLON.Constants.TEXTURE_NEAREST_SAMPLINGMODE,
+					null, 
+					null, 
+					null, 
+					false, 
+					BABYLON.Constants.TEXTUREFORMAT_RGBA);
+
+
+
 const pathTracingRenderTarget = new BABYLON.RenderTargetTexture("pathTracingRenderTarget", { width, height }, pathTracingScene, false, false,
 	BABYLON.Constants.TEXTURETYPE_FLOAT, false, BABYLON.Constants.TEXTURE_NEAREST_SAMPLINGMODE, false, false, false,
 	BABYLON.Constants.TEXTUREFORMAT_RGBA);
@@ -556,8 +572,8 @@ screenOutput_eWrapper.onApplyObservable.add(() =>
 const pathTracing_eWrapper = new BABYLON.EffectWrapper({
 	engine: engine,
 	fragmentShader: BABYLON.Effect.ShadersStore["pathTracingFragmentShader"],
-	uniformNames: ["uResolution", "uULen", "uVLen", "uTime", "uFrameCounter", "uEPS_intersect", "uCameraMatrix", "uApertureSize", "uFocusDistance", "uCameraIsMoving"],
-	samplerNames: ["previousBuffer"],
+	uniformNames: ["uResolution", "uRandomVec2", "uULen", "uVLen", "uTime", "uFrameCounter", "uEPS_intersect", "uCameraMatrix", "uApertureSize", "uFocusDistance", "uCameraIsMoving"],
+	samplerNames: ["previousBuffer", "blueNoiseTexture"],
 	name: "pathTracingEffectWrapper"
 });
 
@@ -567,7 +583,9 @@ pathTracing_eWrapper.onApplyObservable.add(() =>
 	uULen = uVLen * (width / height);
 
 	pathTracing_eWrapper.effect.setTexture("previousBuffer", screenCopyRenderTarget);
+	pathTracing_eWrapper.effect.setTexture("blueNoiseTexture", blueNoiseTexture);
 	pathTracing_eWrapper.effect.setFloat2("uResolution", pathTracingRenderTarget.getSize().width, pathTracingRenderTarget.getSize().height);
+	pathTracing_eWrapper.effect.setFloat2("uRandomVec2", uRandomVec2.x, uRandomVec2.y);
 	pathTracing_eWrapper.effect.setFloat("uULen", uULen);
 	pathTracing_eWrapper.effect.setFloat("uVLen", uVLen);
 	pathTracing_eWrapper.effect.setFloat("uTime", uTime);
@@ -591,6 +609,7 @@ function getElapsedTimeInSeconds()
 // Register a render loop to repeatedly render the scene
 engine.runRenderLoop(function ()
 {
+	// first check for pointerLock state and add or remove keyboard listeners
 	if (isPaused && engine.isPointerLock)
 	{
 		document.addEventListener('keydown', onKeyDown, false);
@@ -616,6 +635,8 @@ engine.runRenderLoop(function ()
 	uTime = getElapsedTimeInSeconds();
 
 	frameTime = engine.getDeltaTime() * 0.001;
+
+	uRandomVec2.set(Math.random(), Math.random());
 
 	// my own optimized way of telling if the camera has moved or not
 	newCameraMatrix.copyFrom(camera.getWorldMatrix());
