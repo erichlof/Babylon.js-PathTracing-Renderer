@@ -38,10 +38,12 @@ BABYLON.Effect.IncludesShadersStore['pathtracing_defines_and_uniforms'] = `
 
 // Samplers
 uniform sampler2D previousBuffer;
+uniform sampler2D blueNoiseTexture;
 
 // common Uniforms for all scenes
 uniform mat4 uCameraMatrix;
 uniform vec2 uResolution;
+uniform vec2 uRandomVec2;
 uniform float uULen;
 uniform float uVLen;
 uniform float uTime;
@@ -58,6 +60,22 @@ uniform bool uCameraIsMoving;
 
 BABYLON.Effect.IncludesShadersStore['pathtracing_random'] = `
 // the following random/filter functions are required for all scenes
+
+// globals used in blueNoise_rand() function
+vec4 randVec4; // samples and holds the RGBA blueNoise texture value for this pixel
+float randNumber; // the final randomly generated number (range: 0.0 to 1.0)
+float counter; // will get incremented by 1 on each call to blueNoise_rand()
+int channel; // the final selected color channel to use for blueNoise_rand() calc (range: 0 to 3, corresponds to R,G,B, or A)
+float blueNoise_rand()
+{
+	counter++; // increment counter by 1 on every call to blueNoise_rand()
+	// cycles through channels, if modulus is 1.0, channel will always be 0 (only samples the R color channel of the blueNoiseTexture)
+	channel = int(mod(counter, 2.0)); // if modulus is 2.0, channel will cycle through 0,1,0,1,etc (only samples the R and G color channels of the blueNoiseTexture)
+	// if modulus was 4.0, channel will cycle through all available channels: 0,1,2,3,0,1,2,3,etc (samples all R,G,B,and A color chanels of the blueNoiseTexture)
+	
+	randNumber = randVec4[channel]; // get value stored in previously selected channel 0:R, 1:G, 2:B, or 3:A
+	return fract(randNumber); // we're only interested in randNumber's fractional value between 0.0 (inclusive) and 1.0 (non-inclusive)
+}
 
 uvec2 seed; // global seed used in rng() function
 // rng() from iq https://www.shadertoy.com/view/4tXyWN
@@ -259,8 +277,17 @@ void main(void) // if the scene is static and doesn't have any special requireme
 	vec3 camForward     = vec3( uCameraMatrix[2][0],  uCameraMatrix[2][1],  uCameraMatrix[2][2]);
 	vec3 cameraPosition = vec3( uCameraMatrix[3][0],  uCameraMatrix[3][1],  uCameraMatrix[3][2]);
 
-	// calculate unique seed for rng() function
+	// calculate unique seed for rng() function (a high-quality pseudo-random number generator for the GPU by 'iq' on ShaderToy)
 	seed = uvec2(uFrameCounter, uFrameCounter + 1.0) * uvec2(gl_FragCoord);
+
+	// initialize variables for my custom blueNoise_rand() function (alternative to the rng() function mentioned above), which instead samples from the provided RGBA blueNoiseTexture to generate pseudo-random numbers.
+	// note: its main use is for diffuse/dielectric surface convergence speed and shadow noise reduction, but it is inferior to iq's rng() function for generating pure non-repeating random numbers between 0.0-1.0 : use at your discretion
+	counter = -1.0; // will get incremented by 1 on each call to blueNoise_rand()
+	channel = 0; // the final selected color channel to use for blueNoise_rand() calc (range: 0 to 3, corresponds to R,G,B, or A)
+	randNumber = 0.0; // the final randomly-generated number (range: 0.0 to 1.0)
+	randVec4 = vec4(0); // on each animation frame, it samples and holds the RGBA blueNoise texture value for this pixel 
+	randVec4 = texelFetch(blueNoiseTexture, ivec2(mod(gl_FragCoord.xy + floor(uRandomVec2 * 256.0), 256.0)), 0);
+	//randVec4 = texelFetch(blueNoiseTexture, ivec2(gl_FragCoord.xy + vec2(uFrameCounter)), 0);
 
 	//vec2 pixelOffset = vec2(0);
 	vec2 pixelOffset = vec2( tentFilter(rng()), tentFilter(rng()) );
