@@ -30,6 +30,9 @@ let uOneOverSampleCounter = 0.0; // the sample accumulation buffer gets multipli
 let uULen = 1.0; // rendering pixel horizontal scale, related to camera's FOV and aspect ratio
 let uVLen = 1.0; // rendering pixel vertical scale, related to camera's FOV
 let uCameraIsMoving = false; // lets the path tracer know if the camera is being moved 
+let uColorEdgeSharpeningRate  = 0.0; // 0.0-1.0 how fast should a color difference edge boundary (i.e. checkerboard) sharpen into focus
+let uNormalEdgeSharpeningRate = 1.0; // 0.0-1.0 how fast should a surface normal difference edge boundary (i.e. corner of a room) sharpen into focus
+let uObjectEdgeSharpeningRate = 0.05; // 0.0-1.0 how fast should an object difference edge boundary (i.e. 2 similar spheres: one closer that is partially blocking the other one behind it) sharpen into focus
 
 // scene/demo-specific uniforms
 let uQuadLightPlaneSelectionNumber;
@@ -78,10 +81,89 @@ vec3 ReinhardToneMapping(vec3 color)
 
 void main(void)
 {
-	vec3 pixelColor = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy), 0).rgb * uOneOverSampleCounter;
-        pixelColor = ReinhardToneMapping(pixelColor);
+	vec4 m[9];
+        m[0] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2(-1, 1)), 0);
+        m[1] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2( 0, 1)), 0);
+        m[2] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2( 1, 1)), 0);
 
-	glFragColor = clamp(vec4( pow(pixelColor, vec3(0.4545)), 1.0 ), 0.0, 1.0);
+        m[3] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2(-1, 0)), 0);
+        m[4] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2( 0, 0)), 0);
+        m[5] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2( 1, 0)), 0);
+
+        m[6] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2(-1,-1)), 0);
+        m[7] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2( 0,-1)), 0);
+        m[8] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2( 1,-1)), 0);
+
+        vec4 centerPixel = m[4];
+        vec3 filteredPixelColor;
+	float threshold = 1.0;
+        int count = 1;
+
+
+        // 3x3 kernel - good for half resolutions, or (1.0 / engine.setHardwareScalingLevel(2)) = 0.5 resolution
+        // start with center pixel
+	filteredPixelColor = m[4].rgb;
+
+        // search left
+        if (m[3].a < threshold)
+        {
+                filteredPixelColor += m[3].rgb;
+                count++;
+        }
+        // search right
+        if (m[5].a < threshold)
+        {
+                filteredPixelColor += m[5].rgb;
+                count++;
+        }
+        // search above
+        if (m[1].a < threshold)
+        {
+                filteredPixelColor += m[1].rgb;
+                count++;
+        }
+        // search below
+        if (m[7].a < threshold)
+        {
+                filteredPixelColor += m[7].rgb;
+                count++;
+        }
+
+        // search upper-left
+        if (m[0].a < threshold)
+        {
+                filteredPixelColor += m[0].rgb;
+                count++;
+        }
+        // search upper-right
+        if (m[2].a < threshold)
+        {
+                filteredPixelColor += m[2].rgb;
+                count++;
+        }
+        // search lower-left
+        if (m[6].a < threshold)
+        {
+                filteredPixelColor += m[6].rgb;
+                count++;
+        }
+        // search lower-right
+        if (m[8].a < threshold)
+        {
+                filteredPixelColor += m[8].rgb;
+                count++;
+        }
+
+        filteredPixelColor /= float(count);
+
+        if (uOneOverSampleCounter < 1.0)
+	        filteredPixelColor = mix(filteredPixelColor, centerPixel.rgb, clamp(centerPixel.a, 0.0, 1.0));
+
+        filteredPixelColor *= uOneOverSampleCounter;
+
+        filteredPixelColor = ReinhardToneMapping(filteredPixelColor);
+
+        glFragColor = clamp(vec4( pow(filteredPixelColor, vec3(0.4545)), 1.0 ), 0.0, 1.0);
 }
 `;
 
@@ -132,8 +214,12 @@ void SceneIntersect( Ray r, out Intersection intersection )
 {
 	float d;
 	int objectCount = 0;
-	// re-initialize intersection ray t field
+	// initialize intersection fields
 	intersection.t = INFINITY;
+	intersection.normal = vec3(0);
+	intersection.color = vec3(0);
+	intersection.type = -100;
+	intersection.objectID = -INFINITY;
 
         for (int i = 0; i < N_SPHERES; i++)
         {
@@ -206,24 +292,21 @@ vec3 CalculateRadiance( Ray r, out vec3 objectNormal, out vec3 objectColor, out 
 		SceneIntersect(r, intersection);
 
 
-		if (intersection.t == INFINITY)
-			break;
-
 		// useful data
 		n = normalize(intersection.normal);
                 nl = dot(n, r.direction) < 0.0 ? normalize(n) : normalize(-n);
 		x = r.origin + r.direction * intersection.t;
 
-		if (bounces == 0)
+		if (bounces == 0 || (bounces == 1 && previousIntersecType == METAL))
 		{
 			objectNormal = nl;
 			objectColor = intersection.color;
 			objectID = intersection.objectID;
 		}
-		if (bounces == 1 && previousIntersecType == METAL)
-		{
-			objectColor = intersection.color;
-		}
+
+		// now we can break if nothing was intersected because we needed to get the intersection data first
+		if (intersection.t == INFINITY)
+			break;
 
 
 		if (intersection.type == LIGHT)
@@ -399,7 +482,7 @@ void SetupScene(void)
 	float lightRadius = uQuadLightRadius * 0.2;
 
 	spheres[0] = Sphere( sphereRadius, vec3(-wallRadius*0.45, -wallRadius + sphereRadius + 0.1, -wallRadius*0.2), vec3(1.0, 1.0, 0.0), CLEARCOAT_DIFFUSE ); // clearCoat diffuse Sphere Left
-	spheres[1] = Sphere( sphereRadius, vec3( wallRadius*0.45, -wallRadius + sphereRadius + 0.1, -wallRadius*0.2), vec3(1.0, 1.0, 1.0),       TRANSPARENT ); // glass Sphere Right
+	spheres[1] = Sphere( sphereRadius, vec3( wallRadius*0.45, -wallRadius + sphereRadius + 0.1, -wallRadius*0.2), vec3(1.0, 1.0, 1.0), METAL ); // glass Sphere Right
  
 	
 	quads[0] = Quad( vec3( 0, 0, 1), vec3(-wallRadius, wallRadius, wallRadius), vec3( wallRadius, wallRadius, wallRadius), vec3( wallRadius,-wallRadius, wallRadius), vec3(-wallRadius,-wallRadius, wallRadius), vec3( 1.0,  1.0,  1.0), DIFFUSE);// Back Wall
@@ -421,10 +504,6 @@ void SetupScene(void)
 	else if (uQuadLightPlaneSelectionNumber == 6.0)
 		quads[5] = Quad( vec3( 0,-1, 0), vec3(-lightRadius, wallRadius-1.0,-lightRadius), vec3(lightRadius, wallRadius-1.0,-lightRadius), vec3(lightRadius, wallRadius-1.0, lightRadius), vec3(-lightRadius, wallRadius-1.0, lightRadius), light_emissionColor, LIGHT);// Quad Area Light on ceiling
 	
-	
-	
-	
-
 } // end void SetupScene(void)
 
 
@@ -590,8 +669,8 @@ screenOutput_eWrapper.onApplyObservable.add(() =>
 const pathTracing_eWrapper = new BABYLON.EffectWrapper({
 	engine: engine,
 	fragmentShader: BABYLON.Effect.ShadersStore["pathTracingFragmentShader"],
-	uniformNames: ["uResolution", "uRandomVec2", "uULen", "uVLen", "uTime", "uFrameCounter", "uEPS_intersect", 
-		"uCameraMatrix", "uApertureSize", "uFocusDistance", "uCameraIsMoving", "uQuadLightPlaneSelectionNumber", "uQuadLightRadius"],
+	uniformNames: ["uResolution", "uRandomVec2", "uULen", "uVLen", "uTime", "uFrameCounter", "uSampleCounter", "uEPS_intersect", "uCameraMatrix", "uApertureSize", "uFocusDistance",
+		"uColorEdgeSharpeningRate", "uNormalEdgeSharpeningRate", "uObjectEdgeSharpeningRate", "uCameraIsMoving", "uQuadLightPlaneSelectionNumber", "uQuadLightRadius"],
 	samplerNames: ["previousBuffer", "blueNoiseTexture"],
 	name: "pathTracingEffectWrapper"
 });
@@ -615,6 +694,9 @@ pathTracing_eWrapper.onApplyObservable.add(() =>
 	pathTracing_eWrapper.effect.setFloat("uFocusDistance", uFocusDistance);
 	pathTracing_eWrapper.effect.setFloat("uQuadLightPlaneSelectionNumber", uQuadLightPlaneSelectionNumber);
 	pathTracing_eWrapper.effect.setFloat("uQuadLightRadius", uQuadLightRadius);
+	pathTracing_eWrapper.effect.setFloat("uColorEdgeSharpeningRate", uColorEdgeSharpeningRate);
+	pathTracing_eWrapper.effect.setFloat("uNormalEdgeSharpeningRate", uNormalEdgeSharpeningRate);
+	pathTracing_eWrapper.effect.setFloat("uObjectEdgeSharpeningRate", uObjectEdgeSharpeningRate);
 	pathTracing_eWrapper.effect.setBool("uCameraIsMoving", uCameraIsMoving);
 	pathTracing_eWrapper.effect.setMatrix("uCameraMatrix", camera.getWorldMatrix());
 });
