@@ -12,12 +12,8 @@ let nm, om;
 let increaseFOV = false;
 let decreaseFOV = false;
 let uApertureSize; // scene specific, depending on scene size dimensions
-let increaseAperture = false;
-let decreaseAperture = false;
 let apertureChangeAmount; // scene specific, depending on scene size dimensions
 let uFocusDistance; // scene specific, depending on scene size dimensions
-let increaseFocusDist = false;
-let decreaseFocusDist = false;
 let focusDistChangeAmount; // scene specific, depending on scene size dimensions
 let mouseControl = true;
 let cameraDirectionVector = new BABYLON.Vector3(); //for moving where the camera is looking
@@ -37,6 +33,7 @@ let uCameraIsMoving = false; // lets the path tracer know if the camera is being
 
 // scene/demo-specific uniforms
 let uQuadLightPlaneSelectionNumber;
+let uQuadLightRadius;
 
 
 BABYLON.Effect.ShadersStore["screenCopyFragmentShader"] = `
@@ -98,6 +95,7 @@ precision highp sampler2D;
 
 // Demo-specific Uniforms
 uniform float uQuadLightPlaneSelectionNumber;
+uniform float uQuadLightRadius;
 
 // demo/scene-specific setup
 #define N_QUADS 6
@@ -398,7 +396,7 @@ void SetupScene(void)
 
 	float sphereRadius = 16.0;
 	float wallRadius = 50.0;
-	float lightRadius = wallRadius * 0.2;
+	float lightRadius = uQuadLightRadius * 0.2;
 
 	spheres[0] = Sphere( sphereRadius, vec3(-wallRadius*0.45, -wallRadius + sphereRadius + 0.1, -wallRadius*0.2), vec3(1.0, 1.0, 0.0), CLEARCOAT_DIFFUSE ); // clearCoat diffuse Sphere Left
 	spheres[1] = Sphere( sphereRadius, vec3( wallRadius*0.45, -wallRadius + sphereRadius + 0.1, -wallRadius*0.2), vec3(1.0, 1.0, 1.0),       TRANSPARENT ); // glass Sphere Right
@@ -439,14 +437,14 @@ const KEYCODE_NAMES = {
 	65: 'a', 66: 'b', 67: 'c', 68: 'd', 69: 'e', 70: 'f', 71: 'g', 72: 'h', 73: 'i', 74: 'j', 75: 'k', 76: 'l', 77: 'm',
 	78: 'n', 79: 'o', 80: 'p', 81: 'q', 82: 'r', 83: 's', 84: 't', 85: 'u', 86: 'v', 87: 'w', 88: 'x', 89: 'y', 90: 'z',
 	37: 'left', 38: 'up', 39: 'right', 40: 'down', 32: 'space', 33: 'pageup', 34: 'pagedown', 9: 'tab',
-	189: 'dash', 187: 'equals', 188: 'comma', 190: 'period', 27: 'escape', 13: 'enter',
+	189: 'dash', 187: 'equals', 219: 'leftbracket', 221: 'rightbracket', 188: 'comma', 190: 'period', 27: 'escape', 13: 'enter',
 	48: 'zero', 49: 'one', 50: 'two', 51: 'three', 52: 'four', 53: 'five', 54: 'six', 55: 'seven', 56: 'eight', 57: 'nine'
 }
 let KeyboardState = {
 	a: false, b: false, c: false, d: false, e: false, f: false, g: false, h: false, i: false, j: false, k: false, l: false, m: false,
 	n: false, o: false, p: false, q: false, r: false, s: false, t: false, u: false, v: false, w: false, x: false, y: false, z: false,
 	left: false, up: false, right: false, down: false, space: false, pageup: false, pagedown: false, tab: false,
-	dash: false, equals: false, comma: false, period: false, escape: false, enter: false,
+	dash: false, equals: false, leftbracket: false, rightbracket: false, comma: false, period: false, escape: false, enter: false,
 	zero: false, one: false, two: false, three: false, four: false, five: false, six: false, seven: false, eight: false, nine: false
 }
 
@@ -528,6 +526,7 @@ const uEPS_intersect = mouseControl ? 0.01 : 0.1; // less precision on mobile - 
 apertureChangeAmount = 2; // scene specific, depending on scene size dimensions
 focusDistChangeAmount = 1; // scene specific, depending on scene size dimensions
 uQuadLightPlaneSelectionNumber = 6;
+uQuadLightRadius = 50;
 
 oldCameraMatrix = new BABYLON.Matrix;
 newCameraMatrix = new BABYLON.Matrix;
@@ -591,7 +590,8 @@ screenOutput_eWrapper.onApplyObservable.add(() =>
 const pathTracing_eWrapper = new BABYLON.EffectWrapper({
 	engine: engine,
 	fragmentShader: BABYLON.Effect.ShadersStore["pathTracingFragmentShader"],
-	uniformNames: ["uResolution", "uRandomVec2", "uULen", "uVLen", "uTime", "uFrameCounter", "uEPS_intersect", "uCameraMatrix", "uApertureSize", "uFocusDistance", "uCameraIsMoving", "uQuadLightPlaneSelectionNumber"],
+	uniformNames: ["uResolution", "uRandomVec2", "uULen", "uVLen", "uTime", "uFrameCounter", "uEPS_intersect", 
+		"uCameraMatrix", "uApertureSize", "uFocusDistance", "uCameraIsMoving", "uQuadLightPlaneSelectionNumber", "uQuadLightRadius"],
 	samplerNames: ["previousBuffer", "blueNoiseTexture"],
 	name: "pathTracingEffectWrapper"
 });
@@ -614,6 +614,7 @@ pathTracing_eWrapper.onApplyObservable.add(() =>
 	pathTracing_eWrapper.effect.setFloat("uApertureSize", uApertureSize);
 	pathTracing_eWrapper.effect.setFloat("uFocusDistance", uFocusDistance);
 	pathTracing_eWrapper.effect.setFloat("uQuadLightPlaneSelectionNumber", uQuadLightPlaneSelectionNumber);
+	pathTracing_eWrapper.effect.setFloat("uQuadLightRadius", uQuadLightRadius);
 	pathTracing_eWrapper.effect.setBool("uCameraIsMoving", uCameraIsMoving);
 	pathTracing_eWrapper.effect.setMatrix("uCameraMatrix", camera.getWorldMatrix());
 });
@@ -708,19 +709,43 @@ engine.runRenderLoop(function ()
 
 	if (keyPressed('equals') && !keyPressed('dash'))
 	{
-		increaseFocusDist = true;
+		uFocusDistance += focusDistChangeAmount;
+		uCameraIsMoving = true;
 	}
 	if (keyPressed('dash') && !keyPressed('equals'))
 	{
-		decreaseFocusDist = true;
+		uFocusDistance -= focusDistChangeAmount;
+		if (uFocusDistance < 1)
+			uFocusDistance = 1;
+		uCameraIsMoving = true;
 	}
 	if (keyPressed('period') && !keyPressed('comma'))
 	{
-		increaseAperture = true;
+		uApertureSize += apertureChangeAmount;
+		if (uApertureSize > 100000.0)
+			uApertureSize = 100000.0;
+		uCameraIsMoving = true;
 	}
 	if (keyPressed('comma') && !keyPressed('period'))
 	{
-		decreaseAperture = true;
+		uApertureSize -= apertureChangeAmount;
+		if (uApertureSize < 0.0)
+			uApertureSize = 0.0;
+		uCameraIsMoving = true;
+	}
+	if (keyPressed('leftbracket') && !keyPressed('rightbracket'))
+	{
+		uQuadLightRadius -= 20 * frameTime;
+		if (uQuadLightRadius < 5)
+			uQuadLightRadius = 5;
+		uCameraIsMoving = true;
+	}
+	if (keyPressed('rightbracket') && !keyPressed('leftbracket'))
+	{
+		uQuadLightRadius += 20 * frameTime;
+		if (uQuadLightRadius > 150)
+			uQuadLightRadius = 150;
+		uCameraIsMoving = true;
 	}
 	
 	if (keyPressed('one'))
@@ -778,42 +803,6 @@ engine.runRenderLoop(function ()
 
 		uCameraIsMoving = true;
 		decreaseFOV = false;
-	}
-
-	if (increaseFocusDist)
-	{
-		uFocusDistance += focusDistChangeAmount;
-		
-		uCameraIsMoving = true;
-		increaseFocusDist = false;
-	}
-	if (decreaseFocusDist)
-	{
-		uFocusDistance -= focusDistChangeAmount;
-		if (uFocusDistance < 1)
-			uFocusDistance = 1;
-		
-		uCameraIsMoving = true;
-		decreaseFocusDist = false;
-	}
-
-	if (increaseAperture)
-	{
-		uApertureSize += apertureChangeAmount;
-		if (uApertureSize > 100000.0)
-			uApertureSize = 100000.0;
-		
-		uCameraIsMoving = true;
-		increaseAperture = false;
-	}
-	if (decreaseAperture)
-	{
-		uApertureSize -= apertureChangeAmount;
-		if (uApertureSize < 0.0)
-			uApertureSize = 0.0;
-		
-		uCameraIsMoving = true;
-		decreaseAperture = false;
 	}
 
 	if (!uCameraIsMoving)
