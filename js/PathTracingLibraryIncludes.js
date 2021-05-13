@@ -49,6 +49,9 @@ uniform float uSampleCounter;
 uniform float uEPS_intersect;
 uniform float uApertureSize;
 uniform float uFocusDistance;
+uniform float uColorEdgeSharpeningRate;
+uniform float uNormalEdgeSharpeningRate;
+uniform float uObjectEdgeSharpeningRate;
 uniform bool uCameraIsMoving;
 
 `;
@@ -305,31 +308,57 @@ void main(void) // if the scene is static and doesn't have any special requireme
 
 	SetupScene();
 
-	// Note Babylon: Edge Detection/De-Noiser is not functional yet - TODO: add it back in now that everything is setup and working properly inside Babylon.js
-	
 	// Edge Detection variables - don't want to blur edges where either surface normals change abruptly (i.e. room wall corners), objects overlap each other (i.e. edge of a foreground sphere in front of another sphere right behind it),
 	// or an abrupt color variation on the same smooth surface, even if it has similar surface normals (i.e. checkerboard pattern). Want to keep all of these cases as sharp as possible - no blur filter will be applied.
-	vec3 objectNormal, objectColor;
+	vec3 objectNormal = vec3(0);
+	vec3 objectColor = vec3(0);
 	float objectID = -INFINITY;
 	float pixelSharpness = 0.0;
 
-
 	// perform path tracing and get resulting pixel color
 	vec4 currentPixel = vec4( vec3(CalculateRadiance(ray, objectNormal, objectColor, objectID, pixelSharpness)), 0.0 );
-
+	// if difference between normals of neighboring pixels is less than the first edge0 threshold, the white edge line effect is considered off (0.0)
+	float edge0 = 0.2; // edge0 is the minimum difference required between normals of neighboring pixels to start becoming a white edge line
+	// any difference between normals of neighboring pixels that is between edge0 and edge1 smoothly ramps up the white edge line brightness (smoothstep 0.0-1.0)
+	float edge1 = 0.6; // once the difference between normals of neighboring pixels is >= this edge1 threshold, the white edge line is considered fully bright (1.0)
+	float difference_Nx = fwidth(objectNormal.x);
+	float difference_Ny = fwidth(objectNormal.y);
+	float difference_Nz = fwidth(objectNormal.z);
+	float normalDifference = smoothstep(edge0, edge1, difference_Nx) + smoothstep(edge0, edge1, difference_Ny) + smoothstep(edge0, edge1, difference_Nz);
+	edge0 = 0.0;
+	edge1 = 0.5;
+	float difference_obj = abs(dFdx(objectID)) > 0.0 ? 1.0 : 0.0;
+	difference_obj += abs(dFdy(objectID)) > 0.0 ? 1.0 : 0.0;
+	float objectDifference = smoothstep(edge0, edge1, difference_obj);
+	float difference_col = length(dFdx(objectColor)) > 0.0 ? 1.0 : 0.0;
+	difference_col += length(dFdy(objectColor)) > 0.0 ? 1.0 : 0.0;
+	float colorDifference = smoothstep(edge0, edge1, difference_col);
+	// edge detector (normal and object differences) white-line debug visualization
+	//currentPixel.rgb += 1.0 * vec3(max(normalDifference, objectDifference));
+	// edge detector (color difference) white-line debug visualization
+	//currentPixel.rgb += 1.0 * vec3(colorDifference);
+	
 	vec4 previousPixel = texelFetch(previousBuffer, ivec2(gl_FragCoord.xy), 0);
-
 	if (uFrameCounter == 1.0) // camera just moved after being still
 	{
 		previousPixel = vec4(0); // clear rendering accumulation buffer
 	}
-	else if (uCameraIsMoving)
+	else if (uCameraIsMoving) // camera is currently moving
 	{
-		previousPixel.rgb *= 0.5;
-		currentPixel.rgb *= 0.5;
+		previousPixel.rgb *= 0.5; // motion-blur trail amount (old image)
+		currentPixel.rgb *= 0.5; // brightness of new image (noisy)
+		previousPixel.a = 0.0;
 	}
+	currentPixel.a = pixelSharpness;
+	currentPixel.a = colorDifference  >= 1.0 ? min(uSampleCounter * uColorEdgeSharpeningRate , 1.01) : currentPixel.a;
+	currentPixel.a = normalDifference >= 1.0 ? min(uSampleCounter * uNormalEdgeSharpeningRate, 1.01) : currentPixel.a;
+	currentPixel.a = objectDifference >= 1.0 ? min(uSampleCounter * uObjectEdgeSharpeningRate, 1.01) : currentPixel.a;
 	
-	glFragColor = vec4(previousPixel.rgb + currentPixel.rgb, 1.0);
+	// Eventually, all edge-containing pixels' .a (alpha channel) values will converge to 1.01, which keeps them from getting blurred by the box-blur filter, thus retaining sharpness.
+	if (pixelSharpness == 1.0 || previousPixel.a == 1.01)
+		currentPixel.a = 1.01;
+	
+	glFragColor = vec4(previousPixel.rgb + currentPixel.rgb, currentPixel.a);
 }
 
 `;
