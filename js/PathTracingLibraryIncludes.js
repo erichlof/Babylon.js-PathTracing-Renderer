@@ -33,9 +33,6 @@ BABYLON.Effect.IncludesShadersStore['pathtracing_defines_and_uniforms'] = `
 #define PAINTING 17
 #define METALCOAT 18
 
-// built-in Varyings
-//in vec2 vUV;
-
 // Samplers
 uniform sampler2D previousBuffer;
 uniform sampler2D blueNoiseTexture;
@@ -156,13 +153,13 @@ float calcFresnelReflectance(vec3 rayDirection, vec3 n, float etai, float etat, 
 `;
 
 
-BABYLON.Effect.IncludesShadersStore[ 'pathtracing_sample_XZquad_light' ] = `
+BABYLON.Effect.IncludesShadersStore[ 'pathtracing_sample_axis_aligned_quad_light' ] = `
 
-vec3 sampleXZQuadLight(vec3 x, vec3 nl, Quad light, out float weight) // required for scenes with quad area lights in the XZ plane
+vec3 sampleAxisAlignedQuadLight(vec3 x, vec3 nl, Quad light, out float weight) // required for scenes with axis-aligned quad area lights (in the XY, XZ, or YZ planes)
 {
 	vec3 randPointOnLight;
 	randPointOnLight.x = mix(light.v0.x, light.v2.x, clamp(rng(), 0.1, 0.9));
-	randPointOnLight.y = light.v0.y;
+	randPointOnLight.y = mix(light.v0.y, light.v2.y, clamp(rng(), 0.1, 0.9));
 	randPointOnLight.z = mix(light.v0.z, light.v2.z, clamp(rng(), 0.1, 0.9));
 	vec3 dirToLight = randPointOnLight - x;
 	float r2 = distance(light.v0, light.v1) * distance(light.v0, light.v3);
