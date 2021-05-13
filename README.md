@@ -12,7 +12,7 @@ Real-time PathTracing with global illumination and progressive rendering, all on
 * < > (comma, period) keys decrease and increase camera's aperture size
 * -- = (dash, equals) keys move camera's focus point forward and back out in the scene
 
-The following controls are specific to this red and blue Cornell Box with yellow sphere and clear glass sphere test scene:
+The following controls are specific to this red and blue Cornell Box with 2 spheres test scene:
 * 1-6 number keys select a different wall for the quad light to be attached to
 * open and close bracket keys decrease and increase the quad light's size
 <br><br>
@@ -24,6 +24,8 @@ To see how this all this got started and to follow future progress, take a look 
 <br>
 
 <h2>Progress Updates</h2>
+
+* May 13th, 2021: Implemented edge detection and my 1st attempt at a real-time de-noiser (it's actually more of a 'noise-smoother', but still it makes a big difference!).  Path tracing is an inherently noisy affair because we only have a budget for 1 random ray path to follow as it bounces around in the scene on each animation frame for each pixel.  A certain pixel's ray might wind up taking a completely different path than its immediate neighbor pixels and returning a very different intersection color/intensity, hence the visual noise - especially on diffuse surfaces.  Inspired by recent NVIDIA efforts like Path Traced Quake, Quake II RTX, and Minecraft RTX, all of which feature real time edge detection and their proprietary A.I. deep learning denoising technology, I set out to create my own simple edge detector and denoiser that could be run real time in the browser, even on smart phones!  If you try the updated demo now, I hope you'll agree that with my 1st attempt, although nowhere near the level of sophistication of NVIDIA's (nor will it ever be, ha), the initial results are promising!  As you drag the camera around, the scene smoothly goes along with you, almost noise-free, and when you do let the camera be still, it instantly converges on a photo-realistic result! 
 
 * May 12th, 2021: Added Blue Noise sampling for alternate random number generator and to smooth out noise.  Each pixel samples a 256x256 RGBA high quality blue noise texture at a randomly offset uv location and then stores and cycles through 1, 2, 3, or all 4 (user choice) of the R,G,B, and A channels that it sampled for that animation frame.  Since blue noise has higher frequency, evenly distributed noise (as compared to the usual more-chaotic white noise), the result is a much smoother appearance on diffuse and transparent surfaces that must take random samples to look physically correct.  Also convergence is sped up, which is always welcome!  IN addition to this blue noise update, I added some controls to the quad area light in the rad and blue Cornell Box scene.  Now you can select a different plane placement of the quad light by pressing any number keys, 1-6.  Also, you can decrease and increase the quad area light's size by holding down the left or right bracket keys. 
 
