@@ -35,6 +35,8 @@ let uULen = 1.0; // rendering pixel horizontal scale, related to camera's FOV an
 let uVLen = 1.0; // rendering pixel vertical scale, related to camera's FOV
 let uCameraIsMoving = false; // lets the path tracer know if the camera is being moved 
 
+// scene/demo-specific uniforms
+let uQuadLightPlaneSelectionNumber;
 
 
 BABYLON.Effect.ShadersStore["screenCopyFragmentShader"] = `
@@ -95,7 +97,7 @@ precision highp int;
 precision highp sampler2D;
 
 // Demo-specific Uniforms
-
+uniform float uQuadLightPlaneSelectionNumber;
 
 // demo/scene-specific setup
 #define N_QUADS 6
@@ -123,7 +125,7 @@ Sphere spheres[N_SPHERES];
 
 #include<pathtracing_quad_intersect> // required on scenes with quads (actually internally they are made up of 2 triangles)
 
-#include<pathtracing_sample_XZquad_light> // required on scenes with quad area lights in the XZ plane (surface normal must face directly down or up)
+#include<pathtracing_sample_axis_aligned_quad_light> // required on scenes with axis-aligned quad area lights (quad must reside in either XY, XZ, or YZ planes) 
 
 
 //-----------------------------------------------------------
@@ -266,7 +268,7 @@ vec3 CalculateRadiance( Ray r, out vec3 objectNormal, out vec3 objectColor, out 
 				continue;
 			}
 
-			dirToLight = sampleXZQuadLight(x, nl, quads[5], weight);
+			dirToLight = sampleAxisAlignedQuadLight(x, nl, quads[5], weight);
 			mask *= weight;
 
 			r = Ray( x, dirToLight );
@@ -369,7 +371,7 @@ vec3 CalculateRadiance( Ray r, out vec3 objectNormal, out vec3 objectColor, out 
 				continue;
 			}
 
-			dirToLight = sampleXZQuadLight(x, nl, quads[5], weight);
+			dirToLight = sampleAxisAlignedQuadLight(x, nl, quads[5], weight);
 			mask *= weight;
 
 			r = Ray( x, dirToLight );
@@ -408,7 +410,22 @@ void SetupScene(void)
 	quads[3] = Quad( vec3( 0,-1, 0), vec3(-wallRadius, wallRadius,-wallRadius), vec3( wallRadius, wallRadius,-wallRadius), vec3( wallRadius, wallRadius, wallRadius), vec3(-wallRadius, wallRadius, wallRadius), vec3( 1.0,  1.0,  1.0), DIFFUSE);// Ceiling
 	quads[4] = Quad( vec3( 0, 1, 0), vec3(-wallRadius,-wallRadius, wallRadius), vec3( wallRadius,-wallRadius, wallRadius), vec3( wallRadius,-wallRadius,-wallRadius), vec3(-wallRadius,-wallRadius,-wallRadius), vec3( 1.0,  1.0,  1.0), DIFFUSE);// Floor
 
-	quads[5] = Quad( vec3( 0,-1, 0), vec3(-lightRadius, wallRadius-1.0,-lightRadius), vec3(lightRadius, wallRadius-1.0,-lightRadius), vec3(lightRadius, wallRadius-1.0, lightRadius), vec3(-lightRadius, wallRadius-1.0, lightRadius), light_emissionColor, LIGHT);// Area Light Rectangle in ceiling
+	if (uQuadLightPlaneSelectionNumber == 1.0)
+		quads[5] = Quad( vec3(-1, 0, 0), vec3(wallRadius-1.0,-lightRadius, lightRadius), vec3(wallRadius-1.0, lightRadius, lightRadius), vec3(wallRadius-1.0, lightRadius,-lightRadius), vec3(wallRadius-1.0,-lightRadius,-lightRadius), light_emissionColor, LIGHT);// Quad Area Light on right wall
+	else if (uQuadLightPlaneSelectionNumber == 2.0)
+		quads[5] = Quad( vec3( 1, 0, 0), vec3(-wallRadius+1.0,-lightRadius,-lightRadius), vec3(-wallRadius+1.0, lightRadius,-lightRadius), vec3(-wallRadius+1.0, lightRadius, lightRadius), vec3(-wallRadius+1.0,-lightRadius, lightRadius), light_emissionColor, LIGHT);// Quad Area Light on left wall
+	else if (uQuadLightPlaneSelectionNumber == 3.0)
+		quads[5] = Quad( vec3( 0, 0, 1), vec3(-lightRadius,-lightRadius, -wallRadius+1.0), vec3(lightRadius,-lightRadius, -wallRadius+1.0), vec3(lightRadius, lightRadius, -wallRadius+1.0), vec3(-lightRadius, lightRadius, -wallRadius+1.0), light_emissionColor, LIGHT);// Quad Area Light on front 'wall'(opening of box)
+	else if (uQuadLightPlaneSelectionNumber == 4.0)
+		quads[5] = Quad( vec3( 0, 0,-1), vec3(-lightRadius,-lightRadius, wallRadius-1.0), vec3(-lightRadius, lightRadius, wallRadius-1.0), vec3(lightRadius, lightRadius, wallRadius-1.0), vec3(lightRadius,-lightRadius, wallRadius-1.0), light_emissionColor, LIGHT);// Quad Area Light on back wall
+	else if (uQuadLightPlaneSelectionNumber == 5.0)
+		quads[5] = Quad( vec3( 0, 1, 0), vec3(-lightRadius, -wallRadius+1.0,-lightRadius), vec3(-lightRadius, -wallRadius+1.0, lightRadius), vec3(lightRadius, -wallRadius+1.0, lightRadius), vec3(lightRadius, -wallRadius+1.0,-lightRadius), light_emissionColor, LIGHT);// Quad Area Light on floor	
+	else if (uQuadLightPlaneSelectionNumber == 6.0)
+		quads[5] = Quad( vec3( 0,-1, 0), vec3(-lightRadius, wallRadius-1.0,-lightRadius), vec3(lightRadius, wallRadius-1.0,-lightRadius), vec3(lightRadius, wallRadius-1.0, lightRadius), vec3(-lightRadius, wallRadius-1.0, lightRadius), light_emissionColor, LIGHT);// Quad Area Light on ceiling
+	
+	
+	
+	
 
 } // end void SetupScene(void)
 
@@ -422,13 +439,15 @@ const KEYCODE_NAMES = {
 	65: 'a', 66: 'b', 67: 'c', 68: 'd', 69: 'e', 70: 'f', 71: 'g', 72: 'h', 73: 'i', 74: 'j', 75: 'k', 76: 'l', 77: 'm',
 	78: 'n', 79: 'o', 80: 'p', 81: 'q', 82: 'r', 83: 's', 84: 't', 85: 'u', 86: 'v', 87: 'w', 88: 'x', 89: 'y', 90: 'z',
 	37: 'left', 38: 'up', 39: 'right', 40: 'down', 32: 'space', 33: 'pageup', 34: 'pagedown', 9: 'tab',
-	189: 'dash', 187: 'equals', 188: 'comma', 190: 'period', 27: 'escape', 13: 'enter'
+	189: 'dash', 187: 'equals', 188: 'comma', 190: 'period', 27: 'escape', 13: 'enter',
+	48: 'zero', 49: 'one', 50: 'two', 51: 'three', 52: 'four', 53: 'five', 54: 'six', 55: 'seven', 56: 'eight', 57: 'nine'
 }
 let KeyboardState = {
 	a: false, b: false, c: false, d: false, e: false, f: false, g: false, h: false, i: false, j: false, k: false, l: false, m: false,
 	n: false, o: false, p: false, q: false, r: false, s: false, t: false, u: false, v: false, w: false, x: false, y: false, z: false,
 	left: false, up: false, right: false, down: false, space: false, pageup: false, pagedown: false, tab: false,
-	dash: false, equals: false, comma: false, period: false, escape: false, enter: false
+	dash: false, equals: false, comma: false, period: false, escape: false, enter: false,
+	zero: false, one: false, two: false, three: false, four: false, five: false, six: false, seven: false, eight: false, nine: false
 }
 
 function onKeyDown(event)
@@ -508,7 +527,7 @@ uFocusDistance = 113.0; // initial focus distance from camera in scene - scene s
 const uEPS_intersect = mouseControl ? 0.01 : 0.1; // less precision on mobile - also both values are scene-size dependent
 apertureChangeAmount = 2; // scene specific, depending on scene size dimensions
 focusDistChangeAmount = 1; // scene specific, depending on scene size dimensions
-
+uQuadLightPlaneSelectionNumber = 6;
 
 oldCameraMatrix = new BABYLON.Matrix;
 newCameraMatrix = new BABYLON.Matrix;
@@ -572,7 +591,7 @@ screenOutput_eWrapper.onApplyObservable.add(() =>
 const pathTracing_eWrapper = new BABYLON.EffectWrapper({
 	engine: engine,
 	fragmentShader: BABYLON.Effect.ShadersStore["pathTracingFragmentShader"],
-	uniformNames: ["uResolution", "uRandomVec2", "uULen", "uVLen", "uTime", "uFrameCounter", "uEPS_intersect", "uCameraMatrix", "uApertureSize", "uFocusDistance", "uCameraIsMoving"],
+	uniformNames: ["uResolution", "uRandomVec2", "uULen", "uVLen", "uTime", "uFrameCounter", "uEPS_intersect", "uCameraMatrix", "uApertureSize", "uFocusDistance", "uCameraIsMoving", "uQuadLightPlaneSelectionNumber"],
 	samplerNames: ["previousBuffer", "blueNoiseTexture"],
 	name: "pathTracingEffectWrapper"
 });
@@ -594,6 +613,7 @@ pathTracing_eWrapper.onApplyObservable.add(() =>
 	pathTracing_eWrapper.effect.setFloat("uEPS_intersect", uEPS_intersect);
 	pathTracing_eWrapper.effect.setFloat("uApertureSize", uApertureSize);
 	pathTracing_eWrapper.effect.setFloat("uFocusDistance", uFocusDistance);
+	pathTracing_eWrapper.effect.setFloat("uQuadLightPlaneSelectionNumber", uQuadLightPlaneSelectionNumber);
 	pathTracing_eWrapper.effect.setBool("uCameraIsMoving", uCameraIsMoving);
 	pathTracing_eWrapper.effect.setMatrix("uCameraMatrix", camera.getWorldMatrix());
 });
@@ -701,6 +721,37 @@ engine.runRenderLoop(function ()
 	if (keyPressed('comma') && !keyPressed('period'))
 	{
 		decreaseAperture = true;
+	}
+	
+	if (keyPressed('one'))
+	{
+		uQuadLightPlaneSelectionNumber = 1;
+		uCameraIsMoving = true;
+	}
+	else if (keyPressed('two'))
+	{
+		uQuadLightPlaneSelectionNumber = 2;
+		uCameraIsMoving = true;
+	}
+	else if (keyPressed('three'))
+	{
+		uQuadLightPlaneSelectionNumber = 3;
+		uCameraIsMoving = true;
+	}
+	else if (keyPressed('four'))
+	{
+		uQuadLightPlaneSelectionNumber = 4;
+		uCameraIsMoving = true;
+	}
+	else if (keyPressed('five'))
+	{
+		uQuadLightPlaneSelectionNumber = 5;
+		uCameraIsMoving = true;
+	}
+	else if (keyPressed('six'))
+	{
+		uQuadLightPlaneSelectionNumber = 6;
+		uCameraIsMoving = true;
 	}
 
 	// now update uniforms that are common to all scenes
