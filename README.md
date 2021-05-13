@@ -10,7 +10,7 @@ Real-time PathTracing with global illumination and progressive rendering, all on
 * Mousewheel to zoom in and out (change FOV)
 * WASD,QE controls camera flight forward and backward, strafe left and right, climb up and down
 * < > (comma, period) keys decrease and increase camera's aperture size
-* - = (dash, equals) keys move camera's focus point forward and back out in the scene
+* -- = (dash, equals) keys move camera's focus point forward and back out in the scene
 
 The following controls are specific to this red and blue Cornell Box with yellow sphere and clear glass sphere test scene:
 * 1-6 number keys select a different wall for the quad light to be attached to
