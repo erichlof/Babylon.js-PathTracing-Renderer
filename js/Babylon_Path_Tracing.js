@@ -81,88 +81,273 @@ vec3 ReinhardToneMapping(vec3 color)
 
 void main(void)
 {
-	vec4 m[9];
-        m[0] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2(-1, 1)), 0);
-        m[1] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2( 0, 1)), 0);
-        m[2] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2( 1, 1)), 0);
+	// 5x5 kernel
+        vec4 m25[25];
 
-        m[3] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2(-1, 0)), 0);
-        m[4] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2( 0, 0)), 0);
-        m[5] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2( 1, 0)), 0);
+        m25[ 0] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2(-2, 2)), 0);
+        m25[ 1] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2(-1, 2)), 0);
+        m25[ 2] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2( 0, 2)), 0);
+        m25[ 3] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2( 1, 2)), 0);
+        m25[ 4] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2( 2, 2)), 0);
 
-        m[6] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2(-1,-1)), 0);
-        m[7] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2( 0,-1)), 0);
-        m[8] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2( 1,-1)), 0);
+        m25[ 5] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2(-2, 1)), 0);
+        m25[ 6] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2(-1, 1)), 0);
+        m25[ 7] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2( 0, 1)), 0);
+        m25[ 8] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2( 1, 1)), 0);
+        m25[ 9] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2( 2, 1)), 0);
 
-        vec4 centerPixel = m[4];
+        m25[10] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2(-2, 0)), 0);
+        m25[11] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2(-1, 0)), 0);
+        m25[12] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2( 0, 0)), 0);
+        m25[13] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2( 1, 0)), 0);
+        m25[14] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2( 2, 0)), 0);
+
+        m25[15] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2(-2,-1)), 0);
+        m25[16] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2(-1,-1)), 0);
+        m25[17] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2( 0,-1)), 0);
+        m25[18] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2( 1,-1)), 0);
+        m25[19] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2( 2,-1)), 0);
+
+        m25[20] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2(-2,-2)), 0);
+        m25[21] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2(-1,-2)), 0);
+        m25[22] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2( 0,-2)), 0);
+        m25[23] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2( 1,-2)), 0);
+        m25[24] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2( 2,-2)), 0);
+        
+        vec4 centerPixel = m25[12];
         vec3 filteredPixelColor;
 	float threshold = 1.0;
         int count = 1;
 
-
-        // 3x3 kernel - good for half resolutions, or (1.0 / engine.setHardwareScalingLevel(2)) = 0.5 resolution
         // start with center pixel
-	filteredPixelColor = m[4].rgb;
-
+        filteredPixelColor = m25[12].rgb;
         // search left
-        if (m[3].a < threshold)
+        if (m25[11].a < threshold)
         {
-                filteredPixelColor += m[3].rgb;
-                count++;
+                filteredPixelColor += m25[11].rgb;
+                count++; 
+                if (m25[10].a < threshold)
+                {
+                        filteredPixelColor += m25[10].rgb;
+                        count++; 
+                }
+                if (m25[5].a < threshold)
+                {
+                        filteredPixelColor += m25[5].rgb;
+                        count++; 
+                }
         }
         // search right
-        if (m[5].a < threshold)
+        if (m25[13].a < threshold)
         {
-                filteredPixelColor += m[5].rgb;
-                count++;
+                filteredPixelColor += m25[13].rgb;
+                count++; 
+                if (m25[14].a < threshold)
+                {
+                        filteredPixelColor += m25[14].rgb;
+                        count++; 
+                }
+                if (m25[19].a < threshold)
+                {
+                        filteredPixelColor += m25[19].rgb;
+                        count++; 
+                }
         }
         // search above
-        if (m[1].a < threshold)
+        if (m25[7].a < threshold)
         {
-                filteredPixelColor += m[1].rgb;
-                count++;
+                filteredPixelColor += m25[7].rgb;
+                count++; 
+                if (m25[2].a < threshold)
+                {
+                        filteredPixelColor += m25[2].rgb;
+                        count++; 
+                }
+                if (m25[3].a < threshold)
+                {
+                        filteredPixelColor += m25[3].rgb;
+                        count++; 
+                }
         }
         // search below
-        if (m[7].a < threshold)
+        if (m25[17].a < threshold)
         {
-                filteredPixelColor += m[7].rgb;
-                count++;
+                filteredPixelColor += m25[17].rgb;
+                count++; 
+                if (m25[22].a < threshold)
+                {
+                        filteredPixelColor += m25[22].rgb;
+                        count++; 
+                }
+                if (m25[21].a < threshold)
+                {
+                        filteredPixelColor += m25[21].rgb;
+                        count++; 
+                }
         }
 
         // search upper-left
-        if (m[0].a < threshold)
+        if (m25[6].a < threshold)
         {
-                filteredPixelColor += m[0].rgb;
-                count++;
+                filteredPixelColor += m25[6].rgb;
+                count++; 
+                if (m25[0].a < threshold)
+                {
+                        filteredPixelColor += m25[0].rgb;
+                        count++; 
+                }
+                if (m25[1].a < threshold)
+                {
+                        filteredPixelColor += m25[1].rgb;
+                        count++; 
+                }
         }
         // search upper-right
-        if (m[2].a < threshold)
+        if (m25[8].a < threshold)
         {
-                filteredPixelColor += m[2].rgb;
-                count++;
+                filteredPixelColor += m25[8].rgb;
+                count++; 
+                if (m25[4].a < threshold)
+                {
+                        filteredPixelColor += m25[4].rgb;
+                        count++; 
+                }
+                if (m25[9].a < threshold)
+                {
+                        filteredPixelColor += m25[9].rgb;
+                        count++; 
+                }
         }
         // search lower-left
-        if (m[6].a < threshold)
+        if (m25[16].a < threshold)
         {
-                filteredPixelColor += m[6].rgb;
-                count++;
+                filteredPixelColor += m25[16].rgb;
+                count++; 
+                if (m25[15].a < threshold)
+                {
+                        filteredPixelColor += m25[15].rgb;
+                        count++; 
+                }
+                if (m25[20].a < threshold)
+                {
+                        filteredPixelColor += m25[20].rgb;
+                        count++; 
+                }
         }
         // search lower-right
-        if (m[8].a < threshold)
+        if (m25[18].a < threshold)
         {
-                filteredPixelColor += m[8].rgb;
-                count++;
+                filteredPixelColor += m25[18].rgb;
+                count++; 
+                if (m25[23].a < threshold)
+                {
+                        filteredPixelColor += m25[23].rgb;
+                        count++; 
+                }
+                if (m25[24].a < threshold)
+                {
+                        filteredPixelColor += m25[24].rgb;
+                        count++; 
+                }
         }
-
+        
         filteredPixelColor /= float(count);
 
-        if (uOneOverSampleCounter < 1.0)
-	        filteredPixelColor = mix(filteredPixelColor, centerPixel.rgb, clamp(centerPixel.a, 0.0, 1.0));
 
+        // 3x3 kernel
+        vec4 m9[9];
+        m9[0] = m25[6];
+        m9[1] = m25[7];
+        m9[2] = m25[8];
+
+        m9[3] = m25[11];
+        m9[4] = m25[12];
+        m9[5] = m25[13];
+
+        m9[6] = m25[16];
+        m9[7] = m25[17];
+        m9[8] = m25[18];
+
+        if (centerPixel.a > 0.0 || centerPixel.a == -1.0)
+        {
+                // reset variables
+                centerPixel = m9[4];
+                count = 1;
+
+                // start with center pixel
+                filteredPixelColor = m9[4].rgb;
+
+                // search left
+                if (m9[3].a < threshold)
+                {
+                        filteredPixelColor += m9[3].rgb;
+                        count++; 
+                }
+                // search right
+                if (m9[5].a < threshold)
+                {
+                        filteredPixelColor += m9[5].rgb;
+                        count++; 
+                }
+                // search above
+                if (m9[1].a < threshold)
+                {
+                        filteredPixelColor += m9[1].rgb;
+                        count++; 
+                }
+                // search below
+                if (m9[7].a < threshold)
+                {
+                        filteredPixelColor += m9[7].rgb;
+                        count++; 
+                }
+
+                // search upper-left
+                if (m9[0].a < threshold)
+                {
+                        filteredPixelColor += m9[0].rgb;
+                        count++; 
+                }
+                // search upper-right
+                if (m9[2].a < threshold)
+                {
+                        filteredPixelColor += m9[2].rgb;
+                        count++; 
+                }
+                // search lower-left
+                if (m9[6].a < threshold)
+                {
+                        filteredPixelColor += m9[6].rgb;
+                        count++; 
+                }
+                // search lower-right
+                if (m9[8].a < threshold)
+                {
+                        filteredPixelColor += m9[8].rgb;
+                        count++; 
+                }
+
+                filteredPixelColor /= float(count);
+
+                filteredPixelColor = mix(filteredPixelColor, centerPixel.rgb, 0.5);
+        } // end if (centerPixel.a > 0.0)
+
+
+        if ((centerPixel.a == 1.01 && uOneOverSampleCounter < 0.005) || uOneOverSampleCounter < 0.0002)
+        {
+                filteredPixelColor = centerPixel.rgb;
+        }
+
+
+        // final filteredPixelColor processing ////////////////////////////////////
+
+        // average accumulation buffer
         filteredPixelColor *= uOneOverSampleCounter;
 
+        // apply tone mapping (brings pixel into 0.0-1.0 rgb color range)
         filteredPixelColor = ReinhardToneMapping(filteredPixelColor);
-
+        
+        // lastly, apply gamma correction (gives more intensity/brightness range where it's needed)
         glFragColor = clamp(vec4( pow(filteredPixelColor, vec3(0.4545)), 1.0 ), 0.0, 1.0);
 }
 `;
@@ -216,8 +401,6 @@ void SceneIntersect( Ray r, out Intersection intersection )
 	int objectCount = 0;
 	// initialize intersection fields
 	intersection.t = INFINITY;
-	intersection.normal = vec3(0);
-	intersection.color = vec3(0);
 	intersection.type = -100;
 	intersection.objectID = -INFINITY;
 
@@ -281,13 +464,16 @@ vec3 CalculateRadiance( Ray r, out vec3 objectNormal, out vec3 objectColor, out 
 
 	int diffuseCount = 0;
 	int previousIntersecType = -100;
+	intersection.type = -100;
 
+	bool coatTypeIntersected = false;
 	bool bounceIsSpecular = true;
 	bool sampleLight = false;
 
 
 	for (int bounces = 0; bounces < 6; bounces++)
 	{
+		previousIntersecType = intersection.type;
 
 		SceneIntersect(r, intersection);
 
@@ -297,12 +483,18 @@ vec3 CalculateRadiance( Ray r, out vec3 objectNormal, out vec3 objectColor, out 
                 nl = dot(n, r.direction) < 0.0 ? normalize(n) : normalize(-n);
 		x = r.origin + r.direction * intersection.t;
 
-		if (bounces == 0 || (bounces == 1 && previousIntersecType == METAL))
+		if (bounces == 0)
 		{
 			objectNormal = nl;
 			objectColor = intersection.color;
 			objectID = intersection.objectID;
 		}
+		if (bounces == 1 && previousIntersecType == METAL)
+		{
+			objectNormal = nl;
+			objectID = intersection.objectID;
+		}
+
 
 		// now we can break if nothing was intersected because we needed to get the intersection data first
 		if (intersection.t == INFINITY)
@@ -312,10 +504,7 @@ vec3 CalculateRadiance( Ray r, out vec3 objectNormal, out vec3 objectColor, out 
 		if (intersection.type == LIGHT)
 		{
 			if (diffuseCount == 0)
-			{
-				objectNormal = nl;
-				pixelSharpness = 1.0;
-			}
+				pixelSharpness = 1.01;
 
 			if (bounceIsSpecular || sampleLight)
 				accumCol = mask * intersection.color;
@@ -334,8 +523,6 @@ vec3 CalculateRadiance( Ray r, out vec3 objectNormal, out vec3 objectColor, out 
 
                 if (intersection.type == DIFFUSE) // Ideal diffuse reflection
 		{
-			previousIntersecType = DIFFUSE;
-
 			diffuseCount++;
 
 			mask *= intersection.color;
@@ -363,8 +550,6 @@ vec3 CalculateRadiance( Ray r, out vec3 objectNormal, out vec3 objectColor, out 
 
 		if (intersection.type == METAL)  // Ideal metal specular reflection
 		{
-			previousIntersecType = METAL;
-
 			mask *= intersection.color;
 
 			r = Ray( x, reflect(r.direction, nl) );
@@ -376,8 +561,13 @@ vec3 CalculateRadiance( Ray r, out vec3 objectNormal, out vec3 objectColor, out 
 
 		if (intersection.type == TRANSPARENT)  // Ideal dielectric specular reflection/refraction
 		{
-			previousIntersecType = TRANSPARENT;
-
+			if (diffuseCount == 0 && !coatTypeIntersected && !uCameraIsMoving )
+				pixelSharpness = 1.01;
+			else if (diffuseCount > 0)
+				pixelSharpness = 0.0;
+			else
+				pixelSharpness = -1.0;
+			
 			nc = 1.0; // IOR of Air
 			nt = 1.5; // IOR of common Glass
 			Re = calcFresnelReflectance(r.direction, n, nc, nt, ratioIoR);
@@ -420,7 +610,9 @@ vec3 CalculateRadiance( Ray r, out vec3 objectNormal, out vec3 objectColor, out 
 
 		if (intersection.type == CLEARCOAT_DIFFUSE)  // Diffuse object underneath with ClearCoat on top
 		{
-			previousIntersecType = CLEARCOAT_DIFFUSE;
+			coatTypeIntersected = true;
+
+			pixelSharpness = 0.0;
 
 			nc = 1.0; // IOR of Air
 			nt = 1.4; // IOR of Clear Coat
@@ -432,6 +624,9 @@ vec3 CalculateRadiance( Ray r, out vec3 objectNormal, out vec3 objectColor, out 
 
 			if (blueNoise_rand() < P)
 			{
+				if (diffuseCount == 0)
+					pixelSharpness = uFrameCounter > 500.0 ? 1.01 : -1.0;
+
 				mask *= RP;
 				r = Ray( x, reflect(r.direction, nl) ); // reflect ray from surface
 				r.origin += nl * uEPS_intersect;
@@ -511,6 +706,8 @@ void SetupScene(void)
 #include<pathtracing_default_main>
 
 `;
+
+
 
 const KEYCODE_NAMES = {
 	65: 'a', 66: 'b', 67: 'c', 68: 'd', 69: 'e', 70: 'f', 71: 'g', 72: 'h', 73: 'i', 74: 'j', 75: 'k', 76: 'l', 77: 'm',
