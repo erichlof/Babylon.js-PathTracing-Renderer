@@ -15,6 +15,7 @@ Real-time PathTracing with global illumination and progressive rendering, all on
 The following controls are specific to this red and blue Cornell Box with 2 spheres test scene:
 * 1-6 number keys select a different wall for the quad light to be attached to
 * open and close bracket keys decrease and increase the quad light's size
+* 7,8,9,0 number keys quickly switch the Right sphere's material
 <br><br>
 
 <br>  
@@ -24,6 +25,8 @@ To see how this all this got started and to follow future progress, take a look 
 <br>
 
 <h2>Progress Updates</h2>
+
+* May 21st, 2021: Updated and improved the de-noiser for Diffuse and clearCoat Diffuse surfaces.  Now scenes containing these surfaces (which is nearly all scenes) converges almost instantly!  I figured out how to cast the denoiser's neighbor pixel net a little wider.  The diffuse blur kernel was 3x3, or 9 taps in the screenOutput shader.  I kept that one for specular surfaces like transparent glass and the coating on top of clearCoat diffuse surfaces when the camera is active.  For the diffuse portions of the scene, (Diffuse, and Diffuse part of clearCoat Diffuse) I increased the sample radius of the blur kernel to 5x5, or 25 taps in the screenOutput shader.  Although this is quite a lot of taps, the GPU doesn't appear to mind too much because all pixels are doing this same task for their neighbors, so there should be no GPU diversion.  This new wider radius really makes a big difference and is definitely worth the extra texture taps!  If I really want to go nuts, I could increase the radius to 7x7, which would mean 49 taps per pixel, ha!  But I think the current radius is big enough for now and gives really smooth results.  What's neat also is that edges such as normal edges, object silhouette edges, and color boundary edges have remained razor sharp through this whole denoising process.  So we can have the best of both worlds: diffuse smoothness and detail sharpness where it counts!
 
 * May 13th, 2021: Implemented edge detection and my 1st attempt at a real-time de-noiser (it's actually more of a 'noise-smoother', but still it makes a big difference!).  Path tracing is an inherently noisy affair because we only have a budget for 1 random ray path to follow as it bounces around in the scene on each animation frame for each pixel.  A certain pixel's ray might wind up taking a completely different path than its immediate neighbor pixels and returning a very different intersection color/intensity, hence the visual noise - especially on diffuse surfaces.  Inspired by recent NVIDIA efforts like Path Traced Quake, Quake II RTX, and Minecraft RTX, all of which feature real time edge detection and their proprietary A.I. deep learning denoising technology, I set out to create my own simple edge detector and denoiser that could be run real time in the browser, even on smart phones!  If you try the updated demo now, I hope you'll agree that with my 1st attempt, although nowhere near the level of sophistication of NVIDIA's (nor will it ever be, ha), the initial results are promising!  As you drag the camera around, the scene smoothly goes along with you, almost noise-free, and when you do let the camera be still, it instantly converges on a photo-realistic result! 
 
