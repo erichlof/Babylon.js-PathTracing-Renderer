@@ -30,13 +30,12 @@ let uOneOverSampleCounter = 0.0; // the sample accumulation buffer gets multipli
 let uULen = 1.0; // rendering pixel horizontal scale, related to camera's FOV and aspect ratio
 let uVLen = 1.0; // rendering pixel vertical scale, related to camera's FOV
 let uCameraIsMoving = false; // lets the path tracer know if the camera is being moved 
-let uColorEdgeSharpeningRate  = 0.0; // 0.0-1.0 how fast should a color difference edge boundary (i.e. checkerboard) sharpen into focus
-let uNormalEdgeSharpeningRate = 1.0; // 0.0-1.0 how fast should a surface normal difference edge boundary (i.e. corner of a room) sharpen into focus
-let uObjectEdgeSharpeningRate = 0.05; // 0.0-1.0 how fast should an object difference edge boundary (i.e. 2 similar spheres: one closer that is partially blocking the other one behind it) sharpen into focus
+
 
 // scene/demo-specific uniforms
 let uQuadLightPlaneSelectionNumber;
 let uQuadLightRadius;
+let uRightSphereMatType;
 
 
 BABYLON.Effect.ShadersStore["screenCopyFragmentShader"] = `
@@ -363,6 +362,7 @@ precision highp sampler2D;
 // Demo-specific Uniforms
 uniform float uQuadLightPlaneSelectionNumber;
 uniform float uQuadLightRadius;
+uniform int uRightSphereMatType;
 
 // demo/scene-specific setup
 #define N_QUADS 6
@@ -478,6 +478,9 @@ vec3 CalculateRadiance( Ray r, out vec3 objectNormal, out vec3 objectColor, out 
 		SceneIntersect(r, intersection);
 
 
+		if (intersection.t == INFINITY)
+			break;
+
 		// useful data
 		n = normalize(intersection.normal);
                 nl = dot(n, r.direction) < 0.0 ? normalize(n) : normalize(-n);
@@ -494,11 +497,6 @@ vec3 CalculateRadiance( Ray r, out vec3 objectNormal, out vec3 objectColor, out 
 			objectNormal = nl;
 			objectID = intersection.objectID;
 		}
-
-
-		// now we can break if nothing was intersected because we needed to get the intersection data first
-		if (intersection.t == INFINITY)
-			break;
 
 
 		if (intersection.type == LIGHT)
@@ -653,7 +651,9 @@ vec3 CalculateRadiance( Ray r, out vec3 objectNormal, out vec3 objectColor, out 
 			r = Ray( x, dirToLight );
 			r.origin += nl * uEPS_intersect;
 
-			sampleLight = true;
+			// this check helps keep random noisy bright pixels from this clearCoat diffuse surface out of the possible previous refracted glass surface
+			if (bounces < 3) 
+				sampleLight = true;
 			continue;
 
 		} //end if (intersection.type == CLEARCOAT_DIFFUSE)
@@ -677,7 +677,7 @@ void SetupScene(void)
 	float lightRadius = uQuadLightRadius * 0.2;
 
 	spheres[0] = Sphere( sphereRadius, vec3(-wallRadius*0.45, -wallRadius + sphereRadius + 0.1, -wallRadius*0.2), vec3(1.0, 1.0, 0.0), CLEARCOAT_DIFFUSE ); // clearCoat diffuse Sphere Left
-	spheres[1] = Sphere( sphereRadius, vec3( wallRadius*0.45, -wallRadius + sphereRadius + 0.1, -wallRadius*0.2), vec3(1.0, 1.0, 1.0), METAL ); // glass Sphere Right
+	spheres[1] = Sphere( sphereRadius, vec3( wallRadius*0.45, -wallRadius + sphereRadius + 0.1, -wallRadius*0.2), vec3(1.0, 1.0, 1.0), uRightSphereMatType ); // user-chosen material Sphere Right
  
 	
 	quads[0] = Quad( vec3( 0, 0, 1), vec3(-wallRadius, wallRadius, wallRadius), vec3( wallRadius, wallRadius, wallRadius), vec3( wallRadius,-wallRadius, wallRadius), vec3(-wallRadius,-wallRadius, wallRadius), vec3( 1.0,  1.0,  1.0), DIFFUSE);// Back Wall
@@ -803,6 +803,7 @@ apertureChangeAmount = 2; // scene specific, depending on scene size dimensions
 focusDistChangeAmount = 1; // scene specific, depending on scene size dimensions
 uQuadLightPlaneSelectionNumber = 6;
 uQuadLightRadius = 50;
+uRightSphereMatType = 3; // enum number code for METAL material - demo starts off with this setting for right sphere
 
 oldCameraMatrix = new BABYLON.Matrix;
 newCameraMatrix = new BABYLON.Matrix;
@@ -866,8 +867,8 @@ screenOutput_eWrapper.onApplyObservable.add(() =>
 const pathTracing_eWrapper = new BABYLON.EffectWrapper({
 	engine: engine,
 	fragmentShader: BABYLON.Effect.ShadersStore["pathTracingFragmentShader"],
-	uniformNames: ["uResolution", "uRandomVec2", "uULen", "uVLen", "uTime", "uFrameCounter", "uSampleCounter", "uEPS_intersect", "uCameraMatrix", "uApertureSize", "uFocusDistance",
-		"uColorEdgeSharpeningRate", "uNormalEdgeSharpeningRate", "uObjectEdgeSharpeningRate", "uCameraIsMoving", "uQuadLightPlaneSelectionNumber", "uQuadLightRadius"],
+	uniformNames: ["uResolution", "uRandomVec2", "uULen", "uVLen", "uTime", "uFrameCounter", "uSampleCounter", "uEPS_intersect", 
+		"uCameraMatrix", "uApertureSize", "uFocusDistance", "uCameraIsMoving", "uQuadLightPlaneSelectionNumber", "uQuadLightRadius", "uRightSphereMatType"],
 	samplerNames: ["previousBuffer", "blueNoiseTexture"],
 	name: "pathTracingEffectWrapper"
 });
@@ -891,9 +892,7 @@ pathTracing_eWrapper.onApplyObservable.add(() =>
 	pathTracing_eWrapper.effect.setFloat("uFocusDistance", uFocusDistance);
 	pathTracing_eWrapper.effect.setFloat("uQuadLightPlaneSelectionNumber", uQuadLightPlaneSelectionNumber);
 	pathTracing_eWrapper.effect.setFloat("uQuadLightRadius", uQuadLightRadius);
-	pathTracing_eWrapper.effect.setFloat("uColorEdgeSharpeningRate", uColorEdgeSharpeningRate);
-	pathTracing_eWrapper.effect.setFloat("uNormalEdgeSharpeningRate", uNormalEdgeSharpeningRate);
-	pathTracing_eWrapper.effect.setFloat("uObjectEdgeSharpeningRate", uObjectEdgeSharpeningRate);
+	pathTracing_eWrapper.effect.setInt("uRightSphereMatType", uRightSphereMatType);
 	pathTracing_eWrapper.effect.setBool("uCameraIsMoving", uCameraIsMoving);
 	pathTracing_eWrapper.effect.setMatrix("uCameraMatrix", camera.getWorldMatrix());
 });
@@ -1055,6 +1054,26 @@ engine.runRenderLoop(function ()
 	else if (keyPressed('six'))
 	{
 		uQuadLightPlaneSelectionNumber = 6;
+		uCameraIsMoving = true;
+	}
+	else if (keyPressed('seven'))
+	{
+		uRightSphereMatType = 2;// enum number code for TRANSPARENT material
+		uCameraIsMoving = true;
+	}
+	else if (keyPressed('eight'))
+	{
+		uRightSphereMatType = 1;// enum number code for DIFFUSE material
+		uCameraIsMoving = true;
+	}
+	else if (keyPressed('nine'))
+	{
+		uRightSphereMatType = 4;// enum number code for CLEARCOAT_DIFFUSE material
+		uCameraIsMoving = true;
+	}
+	else if (keyPressed('zero'))
+	{
+		uRightSphereMatType = 3;// enum number code for METAL material
 		uCameraIsMoving = true;
 	}
 
