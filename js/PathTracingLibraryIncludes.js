@@ -49,9 +49,6 @@ uniform float uSampleCounter;
 uniform float uEPS_intersect;
 uniform float uApertureSize;
 uniform float uFocusDistance;
-uniform float uColorEdgeSharpeningRate;
-uniform float uNormalEdgeSharpeningRate;
-uniform float uObjectEdgeSharpeningRate;
 uniform bool uCameraIsMoving;
 
 `;
@@ -347,16 +344,27 @@ void main(void) // if the scene is static and doesn't have any special requireme
 	{
 		previousPixel.rgb *= 0.5; // motion-blur trail amount (old image)
 		currentPixel.rgb *= 0.5; // brightness of new image (noisy)
+
 		previousPixel.a = 0.0;
 	}
-	currentPixel.a = pixelSharpness;
-	currentPixel.a = colorDifference  >= 1.0 ? min(uSampleCounter * uColorEdgeSharpeningRate , 1.01) : currentPixel.a;
-	currentPixel.a = normalDifference >= 1.0 ? min(uSampleCounter * uNormalEdgeSharpeningRate, 1.01) : currentPixel.a;
-	currentPixel.a = objectDifference >= 1.0 ? min(uSampleCounter * uObjectEdgeSharpeningRate, 1.01) : currentPixel.a;
+	
+	currentPixel.a = 0.0;
+	
+	if (colorDifference >= 1.0 || normalDifference >= 1.0 || objectDifference >= 1.0)
+		pixelSharpness = 1.01;
+
 	
 	// Eventually, all edge-containing pixels' .a (alpha channel) values will converge to 1.01, which keeps them from getting blurred by the box-blur filter, thus retaining sharpness.
-	if (pixelSharpness == 1.0 || previousPixel.a == 1.01)
+	if (pixelSharpness == 1.01)
 		currentPixel.a = 1.01;
+	if (pixelSharpness == -1.0)
+		currentPixel.a = -1.0;
+
+	if (previousPixel.a == 1.01)
+		currentPixel.a = 1.01;
+
+	if (previousPixel.a == -1.0)
+		currentPixel.a = 0.0;
 	
 	glFragColor = vec4(previousPixel.rgb + currentPixel.rgb, currentPixel.a);
 }
