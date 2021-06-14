@@ -18,6 +18,7 @@ The following controls are specific to this red and blue Cornell Box with 2 sphe
 * 7,8,9,0 number keys quickly switch the Right sphere's material
 <br><br>
 
+New Transformed Quadric Geometry demo: https://erichlof.github.io/Babylon.js-PathTracing-Renderer/Transformed_Quadric_Geometry.html 
 <br>  
 
 To see how this all this got started and to follow future progress, take a look at this [Forum Discussion](https://forum.babylonjs.com/t/path-tracing-in-babylonjs/11475/2)
