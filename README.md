@@ -11,14 +11,21 @@ Real-time PathTracing with global illumination and progressive rendering, all on
 * WASD,QE controls camera flight forward and backward, strafe left and right, climb up and down
 * < > (comma, period) keys decrease and increase camera's aperture size
 * -- = (dash, equals) keys move camera's focus point forward and back out in the scene
-
-The following controls are specific to this red and blue Cornell Box with 2 spheres test scene:
 * 1-6 number keys select a different wall for the quad light to be attached to
 * open and close bracket keys decrease and increase the quad light's size
 * 7,8,9,0 number keys quickly switch the Right sphere's material
 <br><br>
 
 New Transformed Quadric Geometry demo: https://erichlof.github.io/Babylon.js-PathTracing-Renderer/Transformed_Quadric_Geometry.html 
+<br>
+The following controls are specific to the above Transformed_Quadric_Geometry demo:
+* R,T,Y keys select transform operation mode - R: Rotation, T: Translation, Y: Scaling
+* F,G keys decrease/increase X value of the selected operation
+* H,J keys decrease/increase Y value of the selected operation
+* K,L keys decrease/increase Z value of the selected operation
+* For example, pressing R would place the transform into Rotation mode, and F,G would rotate the object -/+ about the X axis
+* For example, pressing T would place the transform into Translation mode, and F,G would translate the position -/+ along the X axis
+* For example, pressing Y would place the transform into Scaling mode, and F,G would scale the object size -/+ along the X axis
 <br><br>
 
 To see how this all this got started and to follow future progress, take a look at this [Forum Discussion](https://forum.babylonjs.com/t/path-tracing-in-babylonjs/11475/2)
