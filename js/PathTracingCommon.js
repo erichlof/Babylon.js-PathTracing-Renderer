@@ -625,6 +625,63 @@ float UnitParaboloidIntersect( vec3 ro, vec3 rd )
 `;
 
 
+BABYLON.Effect.IncludesShadersStore[ 'pathtracing_unit_box_intersect' ] = `
+
+float UnitBoxIntersect( vec3 ro, vec3 rd, out vec3 n )
+{
+	vec3 invDir = 1.0 / rd;
+	vec3 near = (vec3(-1) - ro) * invDir; // unit radius box: vec3(-1,-1,-1) min corner
+	vec3 far  = (vec3( 1) - ro) * invDir; // unit radius box: vec3(+1,+1,+1) max corner
+	vec3 tmin = min(near, far);
+	vec3 tmax = max(near, far);
+	float t0 = max( max(tmin.x, tmin.y), tmin.z);
+	float t1 = min( min(tmax.x, tmax.y), tmax.z);
+
+        if (t0 < t1)
+        {
+                if (t0 > 0.0)
+                {
+                        n = -sign(rd) * step(tmin.yzx, tmin) * step(tmin.zxy, tmin);
+                        return t0;
+                }
+                if (t1 > 0.0)
+                {
+                        n = -sign(rd) * step(tmax, tmax.yzx) * step(tmax, tmax.zxy);
+                        return t1;
+                }
+        }
+
+        return INFINITY;
+}
+
+`;
+
+
+BABYLON.Effect.IncludesShadersStore[ 'pathtracing_unit_disk_intersect' ] = `
+
+float UnitDiskIntersect( vec3 ro, vec3 rd )
+{
+        float t0 = (ro.y + 0.0) / -rd.y;
+	vec3 hit = ro + rd * t0;
+	return (t0 > 0.0 && hit.x * hit.x + hit.z * hit.z <= 1.0) ? t0 : INFINITY; // disk with unit radius
+}
+
+`;
+
+
+BABYLON.Effect.IncludesShadersStore[ 'pathtracing_unit_rectangle_intersect' ] = `
+
+float UnitRectangleIntersect( vec3 ro, vec3 rd )
+{
+        float t0 = (ro.y + 0.0) / -rd.y;
+	vec3 hit = ro + rd * t0;
+	return (t0 > 0.0 && abs(hit.x) <= 1.0 && abs(hit.z) <= 1.0) ? t0 : INFINITY; // rectangle with unit radius
+}
+
+`;
+
+
+
 BABYLON.Effect.IncludesShadersStore[ 'pathtracing_quad_intersect' ] = `
 
 float TriangleIntersect( vec3 v0, vec3 v1, vec3 v2, Ray r, bool isDoubleSided )
