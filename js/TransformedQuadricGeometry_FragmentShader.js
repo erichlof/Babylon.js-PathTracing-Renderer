@@ -10,6 +10,9 @@ uniform mat4 uSphereInvMatrix;
 uniform mat4 uCylinderInvMatrix;
 uniform mat4 uConeInvMatrix;
 uniform mat4 uParaboloidInvMatrix;
+uniform mat4 uBoxInvMatrix;
+uniform mat4 uDiskInvMatrix;
+uniform mat4 uRectangleInvMatrix;
 uniform float uQuadLightPlaneSelectionNumber;
 uniform float uQuadLightRadius;
 uniform int uAllShapesMatType;
@@ -41,6 +44,12 @@ Quad quads[N_QUADS];
 
 #include<pathtracing_unit_paraboloid_intersect> // required on scenes with unit paraboloids that will be translated, rotated, and scaled by their matrix transform
 
+#include<pathtracing_unit_box_intersect> // required on scenes with unit boxes that will be translated, rotated, and scaled by their matrix transform
+
+#include<pathtracing_unit_disk_intersect> // required on scenes with unit disks that will be translated, rotated, and scaled by their matrix transform
+
+#include<pathtracing_unit_rectangle_intersect> // required on scenes with unit rectangles that will be translated, rotated, and scaled by their matrix transform
+
 #include<pathtracing_quad_intersect> // required on scenes with quads (actually internally they are made up of 2 triangles)
 
 #include<pathtracing_sample_axis_aligned_quad_light> // required on scenes with axis-aligned quad area lights (quad must reside in either XY, XZ, or YZ planes) 
@@ -50,7 +59,7 @@ Quad quads[N_QUADS];
 void SceneIntersect( Ray r, out Intersection intersection )
 //-----------------------------------------------------------
 {
-	vec3 hit;
+	vec3 hit, n;
 	float d;
 	int objectCount = 0;
 	// initialize intersection fields
@@ -130,6 +139,60 @@ void SceneIntersect( Ray r, out Intersection intersection )
 		intersection.normal = normalize(vec3(2.0 * hit.x, 0.5, 2.0 * hit.z));
 		intersection.normal = normalize(transpose(mat3(uParaboloidInvMatrix)) * intersection.normal);
 		intersection.color = vec3(1.0, 0.0, 1.0);
+		intersection.type = uAllShapesMatType;
+		intersection.objectID = float(objectCount);
+	}
+	objectCount++;
+
+	// transform ray into box's object space
+	rObj.origin = vec3( uBoxInvMatrix * vec4(r.origin, 1.0) );
+	rObj.direction = vec3( uBoxInvMatrix * vec4(r.direction, 0.0) );
+
+	d = UnitBoxIntersect( rObj.origin, rObj.direction, n );
+
+	if (d < intersection.t)
+	{
+		intersection.t = d;
+		hit = rObj.origin + rObj.direction * intersection.t;
+		intersection.normal = normalize(n);
+		intersection.normal = normalize(transpose(mat3(uBoxInvMatrix)) * intersection.normal);
+		intersection.color = vec3(0.0, 0.0, 1.0);
+		intersection.type = uAllShapesMatType;
+		intersection.objectID = float(objectCount);
+	}
+	objectCount++;
+
+	// transform ray into disk's object space
+	rObj.origin = vec3( uDiskInvMatrix * vec4(r.origin, 1.0) );
+	rObj.direction = vec3( uDiskInvMatrix * vec4(r.direction, 0.0) );
+
+	d = UnitDiskIntersect( rObj.origin, rObj.direction );
+
+	if (d < intersection.t)
+	{
+		intersection.t = d;
+		hit = rObj.origin + rObj.direction * intersection.t;
+		intersection.normal = vec3(0,-1,0);
+		intersection.normal = normalize(transpose(mat3(uDiskInvMatrix)) * intersection.normal);
+		intersection.color = vec3(0.0, 1.0, 0.0);
+		intersection.type = uAllShapesMatType;
+		intersection.objectID = float(objectCount);
+	}
+	objectCount++;
+
+	// transform ray into rectangle's object space
+	rObj.origin = vec3( uRectangleInvMatrix * vec4(r.origin, 1.0) );
+	rObj.direction = vec3( uRectangleInvMatrix * vec4(r.direction, 0.0) );
+
+	d = UnitRectangleIntersect( rObj.origin, rObj.direction );
+
+	if (d < intersection.t)
+	{
+		intersection.t = d;
+		hit = rObj.origin + rObj.direction * intersection.t;
+		intersection.normal = vec3(0,-1,0);
+		intersection.normal = normalize(transpose(mat3(uRectangleInvMatrix)) * intersection.normal);
+		intersection.color = vec3(1.0, 0.5, 0.0);
 		intersection.type = uAllShapesMatType;
 		intersection.objectID = float(objectCount);
 	}
@@ -322,7 +385,7 @@ vec3 CalculateRadiance( Ray r, out vec3 objectNormal, out vec3 objectColor, out 
 
 			nc = 1.0; // IOR of Air
 			nt = 1.4; // IOR of Clear Coat
-			Re = calcFresnelReflectance(r.direction, n, nc, nt, ratioIoR);
+			Re = calcFresnelReflectance(r.direction, nl, nc, nt, ratioIoR);
 			Tr = 1.0 - Re;
 			P  = 0.25 + (0.5 * Re);
                 	RP = Re / P;
