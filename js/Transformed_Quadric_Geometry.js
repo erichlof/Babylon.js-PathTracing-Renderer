@@ -32,9 +32,10 @@ let uVLen = 1.0; // rendering pixel vertical scale, related to camera's FOV
 let uCameraIsMoving = false; // lets the path tracer know if the camera is being moved 
 
 // scene/demo-specific variables;
-let shapeRadius = 16;
+let shapeRadius = 10;
 let wallRadius = 50;
-let sphereTransformNode, cylinderTransformNode, coneTransformNode, paraboloidTransformNode;
+let sphereTransformNode, cylinderTransformNode, coneTransformNode, paraboloidTransformNode,
+        boxTransformNode, diskTransformNode, rectangleTransformNode;
 let transformOperation = 0; // 0 = rotation, 1 = translation, 2 = scale
 
 // scene/demo-specific uniforms
@@ -45,6 +46,9 @@ let uSphereInvMatrix = new BABYLON.Matrix();
 let uCylinderInvMatrix = new BABYLON.Matrix();
 let uConeInvMatrix = new BABYLON.Matrix();
 let uParaboloidInvMatrix = new BABYLON.Matrix();
+let uBoxInvMatrix = new BABYLON.Matrix();
+let uDiskInvMatrix = new BABYLON.Matrix();
+let uRectangleInvMatrix = new BABYLON.Matrix();
 
 
 const KEYCODE_NAMES = {
@@ -142,27 +146,39 @@ apertureChangeAmount = 2; // scene specific, depending on scene size dimensions
 focusDistChangeAmount = 1; // scene specific, depending on scene size dimensions
 uQuadLightPlaneSelectionNumber = 6;
 uQuadLightRadius = 50;
-uAllShapesMatType = 3; // enum number code for METAL material - demo starts off with this material applied to all of the shapes
+uAllShapesMatType = 4; // enum number code for ClearCoat Diffuse material - demo starts off with this material applied to all of the shapes
 
 oldCameraMatrix = new BABYLON.Matrix();
 newCameraMatrix = new BABYLON.Matrix();
 
 // must be instantiated here after scene has been created
 sphereTransformNode = new BABYLON.TransformNode();
-sphereTransformNode.position.set(-wallRadius * 0.45, -wallRadius + shapeRadius + 0.1, -wallRadius * 0.45);
+sphereTransformNode.position.set(-wallRadius * 0.75, -wallRadius + shapeRadius + 0.01, -wallRadius * 0.75);
 sphereTransformNode.scaling.set(shapeRadius, shapeRadius, shapeRadius);
 
 cylinderTransformNode = new BABYLON.TransformNode();
-cylinderTransformNode.position.set(wallRadius * 0.45, -wallRadius + shapeRadius + 0.1, -wallRadius * 0.45);
+cylinderTransformNode.position.set(wallRadius * 0.75, -wallRadius + shapeRadius + 0.01, -wallRadius * 0.75);
 cylinderTransformNode.scaling.set(shapeRadius, shapeRadius, shapeRadius);
 
 coneTransformNode = new BABYLON.TransformNode();
-coneTransformNode.position.set(-wallRadius * 0.45, -wallRadius + shapeRadius + 0.1, wallRadius * 0.45);
+coneTransformNode.position.set(-wallRadius * 0.4, -wallRadius + shapeRadius + 0.01, -wallRadius * 0.25);
 coneTransformNode.scaling.set(shapeRadius, shapeRadius, shapeRadius);
 
 paraboloidTransformNode = new BABYLON.TransformNode();
-paraboloidTransformNode.position.set(wallRadius * 0.45, -wallRadius + shapeRadius + 0.1, wallRadius * 0.45);
+paraboloidTransformNode.position.set(wallRadius * 0.4, -wallRadius + shapeRadius + 0.01, -wallRadius * 0.25);
 paraboloidTransformNode.scaling.set(shapeRadius, shapeRadius, shapeRadius);
+
+boxTransformNode = new BABYLON.TransformNode();
+boxTransformNode.position.set(wallRadius * 0.0, -wallRadius + shapeRadius + 0.01, wallRadius * 0.45);
+boxTransformNode.scaling.set(shapeRadius, shapeRadius, shapeRadius);
+
+diskTransformNode = new BABYLON.TransformNode();
+diskTransformNode.position.set(wallRadius * 0.75, -wallRadius + shapeRadius + 0.01, wallRadius * 0.45);
+diskTransformNode.scaling.set(shapeRadius, shapeRadius, shapeRadius);
+
+rectangleTransformNode = new BABYLON.TransformNode();
+rectangleTransformNode.position.set(-wallRadius * 0.75, -wallRadius + shapeRadius + 0.01, wallRadius * 0.45);
+rectangleTransformNode.scaling.set(shapeRadius, shapeRadius, shapeRadius);
 
 
 
@@ -225,7 +241,7 @@ const pathTracing_eWrapper = new BABYLON.EffectWrapper({
         engine: engine,
         fragmentShader: BABYLON.Effect.ShadersStore["pathTracingFragmentShader"],
         uniformNames: ["uResolution", "uRandomVec2", "uULen", "uVLen", "uTime", "uFrameCounter", "uSampleCounter", "uEPS_intersect", "uCameraMatrix", "uApertureSize", "uFocusDistance", "uCameraIsMoving",
-                "uSphereInvMatrix", "uCylinderInvMatrix", "uConeInvMatrix", "uParaboloidInvMatrix", "uQuadLightPlaneSelectionNumber", "uQuadLightRadius", "uAllShapesMatType"],
+                "uSphereInvMatrix", "uCylinderInvMatrix", "uConeInvMatrix", "uParaboloidInvMatrix", "uBoxInvMatrix", "uDiskInvMatrix", "uRectangleInvMatrix", "uQuadLightPlaneSelectionNumber", "uQuadLightRadius", "uAllShapesMatType"],
         samplerNames: ["previousBuffer", "blueNoiseTexture"],
         name: "pathTracingEffectWrapper"
 });
@@ -256,6 +272,9 @@ pathTracing_eWrapper.onApplyObservable.add(() =>
         pathTracing_eWrapper.effect.setMatrix("uCylinderInvMatrix", uCylinderInvMatrix);
         pathTracing_eWrapper.effect.setMatrix("uConeInvMatrix", uConeInvMatrix);
         pathTracing_eWrapper.effect.setMatrix("uParaboloidInvMatrix", uParaboloidInvMatrix);
+        pathTracing_eWrapper.effect.setMatrix("uBoxInvMatrix", uBoxInvMatrix);
+        pathTracing_eWrapper.effect.setMatrix("uDiskInvMatrix", uDiskInvMatrix);
+        pathTracing_eWrapper.effect.setMatrix("uRectangleInvMatrix", uRectangleInvMatrix);
 });
 
 
@@ -460,6 +479,9 @@ engine.runRenderLoop(function ()
                         cylinderTransformNode.rotation.x -= 1 * frameTime;
                         coneTransformNode.rotation.x -= 1 * frameTime;
                         paraboloidTransformNode.rotation.x -= 1 * frameTime;
+                        boxTransformNode.rotation.x -= 1 * frameTime;
+                        diskTransformNode.rotation.x -= 1 * frameTime;
+                        rectangleTransformNode.rotation.x -= 1 * frameTime;
                         uCameraIsMoving = true;
                 }
                 if (keyPressed('g') && !keyPressed('f'))
@@ -468,6 +490,9 @@ engine.runRenderLoop(function ()
                         cylinderTransformNode.rotation.x += 1 * frameTime;
                         coneTransformNode.rotation.x += 1 * frameTime;
                         paraboloidTransformNode.rotation.x += 1 * frameTime;
+                        boxTransformNode.rotation.x += 1 * frameTime;
+                        diskTransformNode.rotation.x += 1 * frameTime;
+                        rectangleTransformNode.rotation.x += 1 * frameTime;
                         uCameraIsMoving = true;
                 }
                 if (keyPressed('h') && !keyPressed('j'))
@@ -476,6 +501,9 @@ engine.runRenderLoop(function ()
                         cylinderTransformNode.rotation.y -= 1 * frameTime;
                         coneTransformNode.rotation.y -= 1 * frameTime;
                         paraboloidTransformNode.rotation.y -= 1 * frameTime;
+                        boxTransformNode.rotation.y -= 1 * frameTime;
+                        diskTransformNode.rotation.y -= 1 * frameTime;
+                        rectangleTransformNode.rotation.y -= 1 * frameTime;
                         uCameraIsMoving = true;
                 }
                 if (keyPressed('j') && !keyPressed('h'))
@@ -484,6 +512,9 @@ engine.runRenderLoop(function ()
                         cylinderTransformNode.rotation.y += 1 * frameTime;
                         coneTransformNode.rotation.y += 1 * frameTime;
                         paraboloidTransformNode.rotation.y += 1 * frameTime;
+                        boxTransformNode.rotation.y += 1 * frameTime;
+                        diskTransformNode.rotation.y += 1 * frameTime;
+                        rectangleTransformNode.rotation.y += 1 * frameTime;
                         uCameraIsMoving = true;
                 }
                 if (keyPressed('k') && !keyPressed('l'))
@@ -492,6 +523,9 @@ engine.runRenderLoop(function ()
                         cylinderTransformNode.rotation.z -= 1 * frameTime;
                         coneTransformNode.rotation.z -= 1 * frameTime;
                         paraboloidTransformNode.rotation.z -= 1 * frameTime;
+                        boxTransformNode.rotation.z -= 1 * frameTime;
+                        diskTransformNode.rotation.z -= 1 * frameTime;
+                        rectangleTransformNode.rotation.z -= 1 * frameTime;
                         uCameraIsMoving = true;
                 }
                 if (keyPressed('l') && !keyPressed('k'))
@@ -500,6 +534,9 @@ engine.runRenderLoop(function ()
                         cylinderTransformNode.rotation.z += 1 * frameTime;
                         coneTransformNode.rotation.z += 1 * frameTime;
                         paraboloidTransformNode.rotation.z += 1 * frameTime;
+                        boxTransformNode.rotation.z += 1 * frameTime;
+                        diskTransformNode.rotation.z += 1 * frameTime;
+                        rectangleTransformNode.rotation.z += 1 * frameTime;
                         uCameraIsMoving = true;
                 }
         }
@@ -511,6 +548,9 @@ engine.runRenderLoop(function ()
                         cylinderTransformNode.position.x -= 20 * frameTime;
                         coneTransformNode.position.x -= 20 * frameTime;
                         paraboloidTransformNode.position.x -= 20 * frameTime;
+                        boxTransformNode.position.x -= 20 * frameTime;
+                        diskTransformNode.position.x -= 20 * frameTime;
+                        rectangleTransformNode.position.x -= 20 * frameTime;
                         uCameraIsMoving = true;
                 }
                 if (keyPressed('g') && !keyPressed('f'))
@@ -519,6 +559,9 @@ engine.runRenderLoop(function ()
                         cylinderTransformNode.position.x += 20 * frameTime;
                         coneTransformNode.position.x += 20 * frameTime;
                         paraboloidTransformNode.position.x += 20 * frameTime;
+                        boxTransformNode.position.x += 20 * frameTime;
+                        diskTransformNode.position.x += 20 * frameTime;
+                        rectangleTransformNode.position.x += 20 * frameTime;
                         uCameraIsMoving = true;
                 }
                 if (keyPressed('h') && !keyPressed('j'))
@@ -527,6 +570,9 @@ engine.runRenderLoop(function ()
                         cylinderTransformNode.position.y -= 20 * frameTime;
                         coneTransformNode.position.y -= 20 * frameTime;
                         paraboloidTransformNode.position.y -= 20 * frameTime;
+                        boxTransformNode.position.y -= 20 * frameTime;
+                        diskTransformNode.position.y -= 20 * frameTime;
+                        rectangleTransformNode.position.y -= 20 * frameTime;
                         uCameraIsMoving = true;
                 }
                 if (keyPressed('j') && !keyPressed('h'))
@@ -535,6 +581,9 @@ engine.runRenderLoop(function ()
                         cylinderTransformNode.position.y += 20 * frameTime;
                         coneTransformNode.position.y += 20 * frameTime;
                         paraboloidTransformNode.position.y += 20 * frameTime;
+                        boxTransformNode.position.y += 20 * frameTime;
+                        diskTransformNode.position.y += 20 * frameTime;
+                        rectangleTransformNode.position.y += 20 * frameTime;
                         uCameraIsMoving = true;
                 }
                 if (keyPressed('k') && !keyPressed('l'))
@@ -543,6 +592,9 @@ engine.runRenderLoop(function ()
                         cylinderTransformNode.position.z -= 20 * frameTime;
                         coneTransformNode.position.z -= 20 * frameTime;
                         paraboloidTransformNode.position.z -= 20 * frameTime;
+                        boxTransformNode.position.z -= 20 * frameTime;
+                        diskTransformNode.position.z -= 20 * frameTime;
+                        rectangleTransformNode.position.z -= 20 * frameTime;
                         uCameraIsMoving = true;
                 }
                 if (keyPressed('l') && !keyPressed('k'))
@@ -551,6 +603,9 @@ engine.runRenderLoop(function ()
                         cylinderTransformNode.position.z += 20 * frameTime;
                         coneTransformNode.position.z += 20 * frameTime;
                         paraboloidTransformNode.position.z += 20 * frameTime;
+                        boxTransformNode.position.z += 20 * frameTime;
+                        diskTransformNode.position.z += 20 * frameTime;
+                        rectangleTransformNode.position.z += 20 * frameTime;
                         uCameraIsMoving = true;
                 }
         }
@@ -562,6 +617,9 @@ engine.runRenderLoop(function ()
                         cylinderTransformNode.scaling.x -= 10 * frameTime;
                         coneTransformNode.scaling.x -= 10 * frameTime;
                         paraboloidTransformNode.scaling.x -= 10 * frameTime;
+                        boxTransformNode.scaling.x -= 10 * frameTime;
+                        diskTransformNode.scaling.x -= 10 * frameTime;
+                        rectangleTransformNode.scaling.x -= 10 * frameTime;
                         uCameraIsMoving = true;
                 }
                 if (keyPressed('g') && !keyPressed('f'))
@@ -570,6 +628,9 @@ engine.runRenderLoop(function ()
                         cylinderTransformNode.scaling.x += 10 * frameTime;
                         coneTransformNode.scaling.x += 10 * frameTime;
                         paraboloidTransformNode.scaling.x += 10 * frameTime;
+                        boxTransformNode.scaling.x += 10 * frameTime;
+                        diskTransformNode.scaling.x += 10 * frameTime;
+                        rectangleTransformNode.scaling.x += 10 * frameTime;
                         uCameraIsMoving = true;
                 }
                 if (keyPressed('h') && !keyPressed('j'))
@@ -578,6 +639,9 @@ engine.runRenderLoop(function ()
                         cylinderTransformNode.scaling.y -= 10 * frameTime;
                         coneTransformNode.scaling.y -= 10 * frameTime;
                         paraboloidTransformNode.scaling.y -= 10 * frameTime;
+                        boxTransformNode.scaling.y -= 10 * frameTime;
+                        diskTransformNode.scaling.y -= 10 * frameTime;
+                        rectangleTransformNode.scaling.y -= 10 * frameTime;
                         uCameraIsMoving = true;
                 }
                 if (keyPressed('j') && !keyPressed('h'))
@@ -586,6 +650,9 @@ engine.runRenderLoop(function ()
                         cylinderTransformNode.scaling.y += 10 * frameTime;
                         coneTransformNode.scaling.y += 10 * frameTime;
                         paraboloidTransformNode.scaling.y += 10 * frameTime;
+                        boxTransformNode.scaling.y += 10 * frameTime;
+                        diskTransformNode.scaling.y += 10 * frameTime;
+                        rectangleTransformNode.scaling.y += 10 * frameTime;
                         uCameraIsMoving = true;
                 }
                 if (keyPressed('k') && !keyPressed('l'))
@@ -594,6 +661,9 @@ engine.runRenderLoop(function ()
                         cylinderTransformNode.scaling.z -= 10 * frameTime;
                         coneTransformNode.scaling.z -= 10 * frameTime;
                         paraboloidTransformNode.scaling.z -= 10 * frameTime;
+                        boxTransformNode.scaling.z -= 10 * frameTime;
+                        diskTransformNode.scaling.z -= 10 * frameTime;
+                        rectangleTransformNode.scaling.z -= 10 * frameTime;
                         uCameraIsMoving = true;
                 }
                 if (keyPressed('l') && !keyPressed('k'))
@@ -602,6 +672,9 @@ engine.runRenderLoop(function ()
                         cylinderTransformNode.scaling.z += 10 * frameTime;
                         coneTransformNode.scaling.z += 10 * frameTime;
                         paraboloidTransformNode.scaling.z += 10 * frameTime;
+                        boxTransformNode.scaling.z += 10 * frameTime;
+                        diskTransformNode.scaling.z += 10 * frameTime;
+                        rectangleTransformNode.scaling.z += 10 * frameTime;
                         uCameraIsMoving = true;
                 }
         }
@@ -664,6 +737,12 @@ engine.runRenderLoop(function ()
         uConeInvMatrix.invert();
         uParaboloidInvMatrix.copyFrom(paraboloidTransformNode.getWorldMatrix());
         uParaboloidInvMatrix.invert();
+        uBoxInvMatrix.copyFrom(boxTransformNode.getWorldMatrix());
+        uBoxInvMatrix.invert();
+        uDiskInvMatrix.copyFrom(diskTransformNode.getWorldMatrix());
+        uDiskInvMatrix.invert();
+        uRectangleInvMatrix.copyFrom(rectangleTransformNode.getWorldMatrix());
+        uRectangleInvMatrix.invert();
 
         uOneOverSampleCounter = 1.0 / uSampleCounter;
 
