@@ -10,11 +10,14 @@ uniform mat4 uSphereInvMatrix;
 uniform mat4 uCylinderInvMatrix;
 uniform mat4 uConeInvMatrix;
 uniform mat4 uParaboloidInvMatrix;
+uniform mat4 uHyperboloidInvMatrix;
 uniform mat4 uBoxInvMatrix;
+uniform mat4 uPyramidFrustumInvMatrix;
 uniform mat4 uDiskInvMatrix;
 uniform mat4 uRectangleInvMatrix;
 uniform float uQuadLightPlaneSelectionNumber;
 uniform float uQuadLightRadius;
+uniform float uShapeK;
 uniform int uAllShapesMatType;
 
 // demo/scene-specific setup
@@ -44,7 +47,11 @@ Quad quads[N_QUADS];
 
 #include<pathtracing_unit_paraboloid_intersect> // required on scenes with unit paraboloids that will be translated, rotated, and scaled by their matrix transform
 
+#include<pathtracing_unit_hyperboloid_intersect> // required on scenes with unit hyperboloids that will be translated, rotated, and scaled by their matrix transform
+
 #include<pathtracing_unit_box_intersect> // required on scenes with unit boxes that will be translated, rotated, and scaled by their matrix transform
+
+#include<pathtracing_pyramid_frustum_intersect> // required on scenes with pyramids/frustums that will be translated, rotated, and scaled by their matrix transform
 
 #include<pathtracing_unit_disk_intersect> // required on scenes with unit disks that will be translated, rotated, and scaled by their matrix transform
 
@@ -99,7 +106,7 @@ void SceneIntersect( Ray r, out Intersection intersection )
 		hit = rObj.origin + rObj.direction * intersection.t;
 		intersection.normal = normalize(vec3(2.0 * hit.x, 0.0, 2.0 * hit.z));
 		intersection.normal = normalize(transpose(mat3(uCylinderInvMatrix)) * intersection.normal);
-		intersection.color = vec3(1.0, 1.0, 0.0);
+		intersection.color = vec3(0.0, 1.0, 0.0);
 		intersection.type = uAllShapesMatType;
 		intersection.objectID = float(objectCount);
 	}
@@ -108,19 +115,18 @@ void SceneIntersect( Ray r, out Intersection intersection )
 	// transform ray into cone's object space
 	rObj.origin = vec3( uConeInvMatrix * vec4(r.origin, 1.0) );
 	rObj.direction = vec3( uConeInvMatrix * vec4(r.direction, 0.0) );
-	float coneK = 1.0; // TODO: make coneK a user-specified uniform
-	d = UnitConeIntersect( rObj.origin, rObj.direction, coneK );
+
+	d = UnitConeIntersect( rObj.origin, rObj.direction, uShapeK );
 
 	if (d < intersection.t)
 	{
 		intersection.t = d;
 		hit = rObj.origin + rObj.direction * intersection.t;
-		float k = clamp(coneK, 0.01, 1.0);
-		float j = 1.0 / k;
+		float j = 1.0 / uShapeK;
 		float h = j * 2.0 - 1.0;
-		intersection.normal = normalize(vec3(2.0 * hit.x * j, 2.0 * (h - hit.y) * (k * 0.25), 2.0 * hit.z * j));
+		intersection.normal = normalize(vec3(2.0 * hit.x * j, 2.0 * (h - hit.y) * (uShapeK * 0.25), 2.0 * hit.z * j));
 		intersection.normal = normalize(transpose(mat3(uConeInvMatrix)) * intersection.normal);
-		intersection.color = vec3(0.0, 1.0, 1.0);
+		intersection.color = vec3(1.0, 1.0, 0.0);
 		intersection.type = uAllShapesMatType;
 		intersection.objectID = float(objectCount);
 	}
@@ -144,6 +150,24 @@ void SceneIntersect( Ray r, out Intersection intersection )
 	}
 	objectCount++;
 
+	// transform ray into hyperboloid's object space
+	rObj.origin = vec3( uHyperboloidInvMatrix * vec4(r.origin, 1.0) );
+	rObj.direction = vec3( uHyperboloidInvMatrix * vec4(r.direction, 0.0) );
+
+	d = UnitHyperboloidIntersect( rObj.origin, rObj.direction, uShapeK, n );
+
+	if (d < intersection.t)
+	{
+		intersection.t = d;
+		hit = rObj.origin + rObj.direction * intersection.t;
+		intersection.normal = normalize(n);
+		intersection.normal = normalize(transpose(mat3(uHyperboloidInvMatrix)) * intersection.normal);
+		intersection.color = vec3(0.2, 0.0, 1.0);
+		intersection.type = uAllShapesMatType;
+		intersection.objectID = float(objectCount);
+	}
+	objectCount++;
+
 	// transform ray into box's object space
 	rObj.origin = vec3( uBoxInvMatrix * vec4(r.origin, 1.0) );
 	rObj.direction = vec3( uBoxInvMatrix * vec4(r.direction, 0.0) );
@@ -162,6 +186,24 @@ void SceneIntersect( Ray r, out Intersection intersection )
 	}
 	objectCount++;
 
+	// transform ray into pyramid/frustum's object space
+	rObj.origin = vec3( uPyramidFrustumInvMatrix * vec4(r.origin, 1.0) );
+	rObj.direction = vec3( uPyramidFrustumInvMatrix * vec4(r.direction, 0.0) );
+
+	d = PyramidFrustumIntersect( rObj.origin, rObj.direction, uShapeK, n );
+
+	if (d < intersection.t)
+	{
+		intersection.t = d;
+		hit = rObj.origin + rObj.direction * intersection.t;
+		intersection.normal = normalize(n);
+		intersection.normal = normalize(transpose(mat3(uPyramidFrustumInvMatrix)) * intersection.normal);
+		intersection.color = vec3(0.0, 0.3, 1.0);
+		intersection.type = uAllShapesMatType;
+		intersection.objectID = float(objectCount);
+	}
+	objectCount++;
+
 	// transform ray into disk's object space
 	rObj.origin = vec3( uDiskInvMatrix * vec4(r.origin, 1.0) );
 	rObj.direction = vec3( uDiskInvMatrix * vec4(r.direction, 0.0) );
@@ -174,7 +216,7 @@ void SceneIntersect( Ray r, out Intersection intersection )
 		hit = rObj.origin + rObj.direction * intersection.t;
 		intersection.normal = vec3(0,-1,0);
 		intersection.normal = normalize(transpose(mat3(uDiskInvMatrix)) * intersection.normal);
-		intersection.color = vec3(0.0, 1.0, 0.0);
+		intersection.color = vec3(0.0, 1.0, 0.5);
 		intersection.type = uAllShapesMatType;
 		intersection.objectID = float(objectCount);
 	}
@@ -192,7 +234,7 @@ void SceneIntersect( Ray r, out Intersection intersection )
 		hit = rObj.origin + rObj.direction * intersection.t;
 		intersection.normal = vec3(0,-1,0);
 		intersection.normal = normalize(transpose(mat3(uRectangleInvMatrix)) * intersection.normal);
-		intersection.color = vec3(1.0, 0.5, 0.0);
+		intersection.color = vec3(1.0, 0.3, 0.0);
 		intersection.type = uAllShapesMatType;
 		intersection.objectID = float(objectCount);
 	}
@@ -263,7 +305,7 @@ vec3 CalculateRadiance( Ray r, out vec3 objectNormal, out vec3 objectColor, out 
 		n = normalize(intersection.normal);
                 nl = dot(n, r.direction) < 0.0 ? normalize(n) : normalize(-n);
 		x = r.origin + r.direction * intersection.t;
-
+		
 		if (bounces == 0)
 		{
 			objectNormal = nl;
