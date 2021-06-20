@@ -34,19 +34,22 @@ let uCameraIsMoving = false; // lets the path tracer know if the camera is being
 // scene/demo-specific variables;
 let shapeRadius = 10;
 let wallRadius = 50;
-let sphereTransformNode, cylinderTransformNode, coneTransformNode, paraboloidTransformNode,
-        boxTransformNode, diskTransformNode, rectangleTransformNode;
+let sphereTransformNode, cylinderTransformNode, coneTransformNode, paraboloidTransformNode, hyperboloidTransformNode,
+        boxTransformNode, pyramidFrustumTransformNode, diskTransformNode, rectangleTransformNode;
 let transformOperation = 0; // 0 = rotation, 1 = translation, 2 = scale
 
 // scene/demo-specific uniforms
 let uQuadLightPlaneSelectionNumber;
 let uQuadLightRadius;
 let uAllShapesMatType;
+let uShapeK = 1.0;
 let uSphereInvMatrix = new BABYLON.Matrix();
 let uCylinderInvMatrix = new BABYLON.Matrix();
 let uConeInvMatrix = new BABYLON.Matrix();
 let uParaboloidInvMatrix = new BABYLON.Matrix();
+let uHyperboloidInvMatrix = new BABYLON.Matrix();
 let uBoxInvMatrix = new BABYLON.Matrix();
+let uPyramidFrustumInvMatrix = new BABYLON.Matrix();
 let uDiskInvMatrix = new BABYLON.Matrix();
 let uRectangleInvMatrix = new BABYLON.Matrix();
 
@@ -161,16 +164,24 @@ cylinderTransformNode.position.set(wallRadius * 0.75, -wallRadius + shapeRadius 
 cylinderTransformNode.scaling.set(shapeRadius, shapeRadius, shapeRadius);
 
 coneTransformNode = new BABYLON.TransformNode();
-coneTransformNode.position.set(-wallRadius * 0.4, -wallRadius + shapeRadius + 0.01, -wallRadius * 0.25);
+coneTransformNode.position.set(-wallRadius * 0.15, -wallRadius + shapeRadius + 0.01, -wallRadius * 0.6);
 coneTransformNode.scaling.set(shapeRadius, shapeRadius, shapeRadius);
 
 paraboloidTransformNode = new BABYLON.TransformNode();
-paraboloidTransformNode.position.set(wallRadius * 0.4, -wallRadius + shapeRadius + 0.01, -wallRadius * 0.25);
+paraboloidTransformNode.position.set(wallRadius * 0.25, -wallRadius + shapeRadius + 0.01, -wallRadius * 0.2);
 paraboloidTransformNode.scaling.set(shapeRadius, shapeRadius, shapeRadius);
+
+hyperboloidTransformNode = new BABYLON.TransformNode();
+hyperboloidTransformNode.position.set(wallRadius * 0.7, -wallRadius + shapeRadius + 0.01, -wallRadius * 0.25);
+hyperboloidTransformNode.scaling.set(shapeRadius, shapeRadius, shapeRadius);
 
 boxTransformNode = new BABYLON.TransformNode();
 boxTransformNode.position.set(wallRadius * 0.0, -wallRadius + shapeRadius + 0.01, wallRadius * 0.45);
 boxTransformNode.scaling.set(shapeRadius, shapeRadius, shapeRadius);
+
+pyramidFrustumTransformNode = new BABYLON.TransformNode();
+pyramidFrustumTransformNode.position.set(-wallRadius * 0.5, -wallRadius + shapeRadius + 0.01, -wallRadius * 0.2);
+pyramidFrustumTransformNode.scaling.set(shapeRadius, shapeRadius, shapeRadius);
 
 diskTransformNode = new BABYLON.TransformNode();
 diskTransformNode.position.set(wallRadius * 0.75, -wallRadius + shapeRadius + 0.01, wallRadius * 0.45);
@@ -240,8 +251,8 @@ screenOutput_eWrapper.onApplyObservable.add(() =>
 const pathTracing_eWrapper = new BABYLON.EffectWrapper({
         engine: engine,
         fragmentShader: BABYLON.Effect.ShadersStore["pathTracingFragmentShader"],
-        uniformNames: ["uResolution", "uRandomVec2", "uULen", "uVLen", "uTime", "uFrameCounter", "uSampleCounter", "uEPS_intersect", "uCameraMatrix", "uApertureSize", "uFocusDistance", "uCameraIsMoving",
-                "uSphereInvMatrix", "uCylinderInvMatrix", "uConeInvMatrix", "uParaboloidInvMatrix", "uBoxInvMatrix", "uDiskInvMatrix", "uRectangleInvMatrix", "uQuadLightPlaneSelectionNumber", "uQuadLightRadius", "uAllShapesMatType"],
+        uniformNames: ["uResolution", "uRandomVec2", "uULen", "uVLen", "uTime", "uFrameCounter", "uSampleCounter", "uEPS_intersect", "uCameraMatrix", "uApertureSize", "uFocusDistance", "uCameraIsMoving", "uShapeK", "uAllShapesMatType",
+                "uSphereInvMatrix", "uCylinderInvMatrix", "uConeInvMatrix", "uParaboloidInvMatrix", "uHyperboloidInvMatrix", "uBoxInvMatrix", "uPyramidFrustumInvMatrix", "uDiskInvMatrix", "uRectangleInvMatrix", "uQuadLightPlaneSelectionNumber", "uQuadLightRadius"],
         samplerNames: ["previousBuffer", "blueNoiseTexture"],
         name: "pathTracingEffectWrapper"
 });
@@ -265,6 +276,7 @@ pathTracing_eWrapper.onApplyObservable.add(() =>
         pathTracing_eWrapper.effect.setFloat("uFocusDistance", uFocusDistance);
         pathTracing_eWrapper.effect.setFloat("uQuadLightPlaneSelectionNumber", uQuadLightPlaneSelectionNumber);
         pathTracing_eWrapper.effect.setFloat("uQuadLightRadius", uQuadLightRadius);
+	pathTracing_eWrapper.effect.setFloat("uShapeK", uShapeK);
         pathTracing_eWrapper.effect.setInt("uAllShapesMatType", uAllShapesMatType);
         pathTracing_eWrapper.effect.setBool("uCameraIsMoving", uCameraIsMoving);
         pathTracing_eWrapper.effect.setMatrix("uCameraMatrix", camera.getWorldMatrix());
@@ -272,7 +284,9 @@ pathTracing_eWrapper.onApplyObservable.add(() =>
         pathTracing_eWrapper.effect.setMatrix("uCylinderInvMatrix", uCylinderInvMatrix);
         pathTracing_eWrapper.effect.setMatrix("uConeInvMatrix", uConeInvMatrix);
         pathTracing_eWrapper.effect.setMatrix("uParaboloidInvMatrix", uParaboloidInvMatrix);
+        pathTracing_eWrapper.effect.setMatrix("uHyperboloidInvMatrix", uHyperboloidInvMatrix);
         pathTracing_eWrapper.effect.setMatrix("uBoxInvMatrix", uBoxInvMatrix);
+        pathTracing_eWrapper.effect.setMatrix("uPyramidFrustumInvMatrix", uPyramidFrustumInvMatrix);
         pathTracing_eWrapper.effect.setMatrix("uDiskInvMatrix", uDiskInvMatrix);
         pathTracing_eWrapper.effect.setMatrix("uRectangleInvMatrix", uRectangleInvMatrix);
 });
@@ -458,6 +472,21 @@ engine.runRenderLoop(function ()
                 uCameraIsMoving = true;
         }
 
+	if (keyPressed('z') && !keyPressed('x'))
+	{
+		uShapeK -= 1 * frameTime;
+		if (uShapeK < 0.01) 
+			uShapeK = 0.01;
+		uCameraIsMoving = true;
+	}
+	if (keyPressed('x') && !keyPressed('z'))
+	{
+		uShapeK += 1 * frameTime;
+		if (uShapeK > 1)
+			uShapeK = 1;
+		uCameraIsMoving = true;
+	}
+
         if (keyPressed('r'))
         {
                 transformOperation = 0; // rotation
@@ -479,7 +508,9 @@ engine.runRenderLoop(function ()
                         cylinderTransformNode.rotation.x -= 1 * frameTime;
                         coneTransformNode.rotation.x -= 1 * frameTime;
                         paraboloidTransformNode.rotation.x -= 1 * frameTime;
+                        hyperboloidTransformNode.rotation.x -= 1 * frameTime;
                         boxTransformNode.rotation.x -= 1 * frameTime;
+                        pyramidFrustumTransformNode.rotation.x -= 1 * frameTime;
                         diskTransformNode.rotation.x -= 1 * frameTime;
                         rectangleTransformNode.rotation.x -= 1 * frameTime;
                         uCameraIsMoving = true;
@@ -490,7 +521,9 @@ engine.runRenderLoop(function ()
                         cylinderTransformNode.rotation.x += 1 * frameTime;
                         coneTransformNode.rotation.x += 1 * frameTime;
                         paraboloidTransformNode.rotation.x += 1 * frameTime;
+                        hyperboloidTransformNode.rotation.x += 1 * frameTime;
                         boxTransformNode.rotation.x += 1 * frameTime;
+                        pyramidFrustumTransformNode.rotation.x += 1 * frameTime;
                         diskTransformNode.rotation.x += 1 * frameTime;
                         rectangleTransformNode.rotation.x += 1 * frameTime;
                         uCameraIsMoving = true;
@@ -501,7 +534,9 @@ engine.runRenderLoop(function ()
                         cylinderTransformNode.rotation.y -= 1 * frameTime;
                         coneTransformNode.rotation.y -= 1 * frameTime;
                         paraboloidTransformNode.rotation.y -= 1 * frameTime;
+                        hyperboloidTransformNode.rotation.y -= 1 * frameTime;
                         boxTransformNode.rotation.y -= 1 * frameTime;
+                        pyramidFrustumTransformNode.rotation.y -= 1 * frameTime;
                         diskTransformNode.rotation.y -= 1 * frameTime;
                         rectangleTransformNode.rotation.y -= 1 * frameTime;
                         uCameraIsMoving = true;
@@ -512,7 +547,9 @@ engine.runRenderLoop(function ()
                         cylinderTransformNode.rotation.y += 1 * frameTime;
                         coneTransformNode.rotation.y += 1 * frameTime;
                         paraboloidTransformNode.rotation.y += 1 * frameTime;
+                        hyperboloidTransformNode.rotation.y += 1 * frameTime;
                         boxTransformNode.rotation.y += 1 * frameTime;
+                        pyramidFrustumTransformNode.rotation.y += 1 * frameTime;
                         diskTransformNode.rotation.y += 1 * frameTime;
                         rectangleTransformNode.rotation.y += 1 * frameTime;
                         uCameraIsMoving = true;
@@ -523,7 +560,9 @@ engine.runRenderLoop(function ()
                         cylinderTransformNode.rotation.z -= 1 * frameTime;
                         coneTransformNode.rotation.z -= 1 * frameTime;
                         paraboloidTransformNode.rotation.z -= 1 * frameTime;
+                        hyperboloidTransformNode.rotation.z -= 1 * frameTime;
                         boxTransformNode.rotation.z -= 1 * frameTime;
+                        pyramidFrustumTransformNode.rotation.z -= 1 * frameTime;
                         diskTransformNode.rotation.z -= 1 * frameTime;
                         rectangleTransformNode.rotation.z -= 1 * frameTime;
                         uCameraIsMoving = true;
@@ -534,7 +573,9 @@ engine.runRenderLoop(function ()
                         cylinderTransformNode.rotation.z += 1 * frameTime;
                         coneTransformNode.rotation.z += 1 * frameTime;
                         paraboloidTransformNode.rotation.z += 1 * frameTime;
+                        hyperboloidTransformNode.rotation.z += 1 * frameTime;
                         boxTransformNode.rotation.z += 1 * frameTime;
+                        pyramidFrustumTransformNode.rotation.z += 1 * frameTime;
                         diskTransformNode.rotation.z += 1 * frameTime;
                         rectangleTransformNode.rotation.z += 1 * frameTime;
                         uCameraIsMoving = true;
@@ -548,7 +589,9 @@ engine.runRenderLoop(function ()
                         cylinderTransformNode.position.x -= 20 * frameTime;
                         coneTransformNode.position.x -= 20 * frameTime;
                         paraboloidTransformNode.position.x -= 20 * frameTime;
+                        hyperboloidTransformNode.position.x -= 20 * frameTime;
                         boxTransformNode.position.x -= 20 * frameTime;
+                        pyramidFrustumTransformNode.position.x -= 20 * frameTime;
                         diskTransformNode.position.x -= 20 * frameTime;
                         rectangleTransformNode.position.x -= 20 * frameTime;
                         uCameraIsMoving = true;
@@ -559,7 +602,9 @@ engine.runRenderLoop(function ()
                         cylinderTransformNode.position.x += 20 * frameTime;
                         coneTransformNode.position.x += 20 * frameTime;
                         paraboloidTransformNode.position.x += 20 * frameTime;
+                        hyperboloidTransformNode.position.x += 20 * frameTime;
                         boxTransformNode.position.x += 20 * frameTime;
+                        pyramidFrustumTransformNode.position.x += 20 * frameTime;
                         diskTransformNode.position.x += 20 * frameTime;
                         rectangleTransformNode.position.x += 20 * frameTime;
                         uCameraIsMoving = true;
@@ -570,7 +615,9 @@ engine.runRenderLoop(function ()
                         cylinderTransformNode.position.y -= 20 * frameTime;
                         coneTransformNode.position.y -= 20 * frameTime;
                         paraboloidTransformNode.position.y -= 20 * frameTime;
+                        hyperboloidTransformNode.position.y -= 20 * frameTime;
                         boxTransformNode.position.y -= 20 * frameTime;
+                        pyramidFrustumTransformNode.position.y -= 20 * frameTime;
                         diskTransformNode.position.y -= 20 * frameTime;
                         rectangleTransformNode.position.y -= 20 * frameTime;
                         uCameraIsMoving = true;
@@ -581,7 +628,9 @@ engine.runRenderLoop(function ()
                         cylinderTransformNode.position.y += 20 * frameTime;
                         coneTransformNode.position.y += 20 * frameTime;
                         paraboloidTransformNode.position.y += 20 * frameTime;
+                        hyperboloidTransformNode.position.y += 20 * frameTime;
                         boxTransformNode.position.y += 20 * frameTime;
+                        pyramidFrustumTransformNode.position.y += 20 * frameTime;
                         diskTransformNode.position.y += 20 * frameTime;
                         rectangleTransformNode.position.y += 20 * frameTime;
                         uCameraIsMoving = true;
@@ -592,7 +641,9 @@ engine.runRenderLoop(function ()
                         cylinderTransformNode.position.z -= 20 * frameTime;
                         coneTransformNode.position.z -= 20 * frameTime;
                         paraboloidTransformNode.position.z -= 20 * frameTime;
+                        hyperboloidTransformNode.position.z -= 20 * frameTime;
                         boxTransformNode.position.z -= 20 * frameTime;
+                        pyramidFrustumTransformNode.position.z -= 20 * frameTime;
                         diskTransformNode.position.z -= 20 * frameTime;
                         rectangleTransformNode.position.z -= 20 * frameTime;
                         uCameraIsMoving = true;
@@ -603,7 +654,9 @@ engine.runRenderLoop(function ()
                         cylinderTransformNode.position.z += 20 * frameTime;
                         coneTransformNode.position.z += 20 * frameTime;
                         paraboloidTransformNode.position.z += 20 * frameTime;
+                        hyperboloidTransformNode.position.z += 20 * frameTime;
                         boxTransformNode.position.z += 20 * frameTime;
+                        pyramidFrustumTransformNode.position.z += 20 * frameTime;
                         diskTransformNode.position.z += 20 * frameTime;
                         rectangleTransformNode.position.z += 20 * frameTime;
                         uCameraIsMoving = true;
@@ -617,7 +670,9 @@ engine.runRenderLoop(function ()
                         cylinderTransformNode.scaling.x -= 10 * frameTime;
                         coneTransformNode.scaling.x -= 10 * frameTime;
                         paraboloidTransformNode.scaling.x -= 10 * frameTime;
+                        hyperboloidTransformNode.scaling.x -= 10 * frameTime;
                         boxTransformNode.scaling.x -= 10 * frameTime;
+                        pyramidFrustumTransformNode.scaling.x -= 10 * frameTime;
                         diskTransformNode.scaling.x -= 10 * frameTime;
                         rectangleTransformNode.scaling.x -= 10 * frameTime;
                         uCameraIsMoving = true;
@@ -628,7 +683,9 @@ engine.runRenderLoop(function ()
                         cylinderTransformNode.scaling.x += 10 * frameTime;
                         coneTransformNode.scaling.x += 10 * frameTime;
                         paraboloidTransformNode.scaling.x += 10 * frameTime;
+                        hyperboloidTransformNode.scaling.x += 10 * frameTime;
                         boxTransformNode.scaling.x += 10 * frameTime;
+                        pyramidFrustumTransformNode.scaling.x += 10 * frameTime;
                         diskTransformNode.scaling.x += 10 * frameTime;
                         rectangleTransformNode.scaling.x += 10 * frameTime;
                         uCameraIsMoving = true;
@@ -639,7 +696,9 @@ engine.runRenderLoop(function ()
                         cylinderTransformNode.scaling.y -= 10 * frameTime;
                         coneTransformNode.scaling.y -= 10 * frameTime;
                         paraboloidTransformNode.scaling.y -= 10 * frameTime;
+                        hyperboloidTransformNode.scaling.y -= 10 * frameTime;
                         boxTransformNode.scaling.y -= 10 * frameTime;
+                        pyramidFrustumTransformNode.scaling.y -= 10 * frameTime;
                         diskTransformNode.scaling.y -= 10 * frameTime;
                         rectangleTransformNode.scaling.y -= 10 * frameTime;
                         uCameraIsMoving = true;
@@ -650,7 +709,9 @@ engine.runRenderLoop(function ()
                         cylinderTransformNode.scaling.y += 10 * frameTime;
                         coneTransformNode.scaling.y += 10 * frameTime;
                         paraboloidTransformNode.scaling.y += 10 * frameTime;
+                        hyperboloidTransformNode.scaling.y += 10 * frameTime;
                         boxTransformNode.scaling.y += 10 * frameTime;
+                        pyramidFrustumTransformNode.scaling.y += 10 * frameTime;
                         diskTransformNode.scaling.y += 10 * frameTime;
                         rectangleTransformNode.scaling.y += 10 * frameTime;
                         uCameraIsMoving = true;
@@ -661,7 +722,9 @@ engine.runRenderLoop(function ()
                         cylinderTransformNode.scaling.z -= 10 * frameTime;
                         coneTransformNode.scaling.z -= 10 * frameTime;
                         paraboloidTransformNode.scaling.z -= 10 * frameTime;
+                        hyperboloidTransformNode.scaling.z -= 10 * frameTime;
                         boxTransformNode.scaling.z -= 10 * frameTime;
+                        pyramidFrustumTransformNode.scaling.z -= 10 * frameTime;
                         diskTransformNode.scaling.z -= 10 * frameTime;
                         rectangleTransformNode.scaling.z -= 10 * frameTime;
                         uCameraIsMoving = true;
@@ -672,7 +735,9 @@ engine.runRenderLoop(function ()
                         cylinderTransformNode.scaling.z += 10 * frameTime;
                         coneTransformNode.scaling.z += 10 * frameTime;
                         paraboloidTransformNode.scaling.z += 10 * frameTime;
+                        hyperboloidTransformNode.scaling.z += 10 * frameTime;
                         boxTransformNode.scaling.z += 10 * frameTime;
+                        pyramidFrustumTransformNode.scaling.z += 10 * frameTime;
                         diskTransformNode.scaling.z += 10 * frameTime;
                         rectangleTransformNode.scaling.z += 10 * frameTime;
                         uCameraIsMoving = true;
@@ -737,8 +802,12 @@ engine.runRenderLoop(function ()
         uConeInvMatrix.invert();
         uParaboloidInvMatrix.copyFrom(paraboloidTransformNode.getWorldMatrix());
         uParaboloidInvMatrix.invert();
+        uHyperboloidInvMatrix.copyFrom(hyperboloidTransformNode.getWorldMatrix());
+        uHyperboloidInvMatrix.invert();
         uBoxInvMatrix.copyFrom(boxTransformNode.getWorldMatrix());
         uBoxInvMatrix.invert();
+        uPyramidFrustumInvMatrix.copyFrom(pyramidFrustumTransformNode.getWorldMatrix());
+        uPyramidFrustumInvMatrix.invert();
         uDiskInvMatrix.copyFrom(diskTransformNode.getWorldMatrix());
         uDiskInvMatrix.invert();
         uRectangleInvMatrix.copyFrom(rectangleTransformNode.getWorldMatrix());
