@@ -625,6 +625,39 @@ float UnitParaboloidIntersect( vec3 ro, vec3 rd )
 `;
 
 
+BABYLON.Effect.IncludesShadersStore[ 'pathtracing_unit_hyperboloid_intersect' ] = `
+
+float UnitHyperboloidIntersect( vec3 ro, vec3 rd, float k, out vec3 n )
+{
+	float t0, t1;
+        // k initially comes in as a value between 0.01 and 1.0
+        k = k * k * k * k + 0.0012;
+        k *= 1000.0; // conservative range of k for the hyperboloid: 0.001 to 1000
+	float j = k - 1.0;
+	float a = k * rd.x * rd.x + k * rd.z * rd.z - j * rd.y * rd.y;
+	float b = 2.0 * (k * rd.x * ro.x + k * rd.z * ro.z - j * rd.y * ro.y);
+	float c = (k * ro.x * ro.x + k * ro.z * ro.z - j * ro.y * ro.y) - 1.0;
+	solveQuadratic(a, b, c, t0, t1);
+
+        vec3 hit = ro + rd * t0;
+        if (t0 > 0.0 && abs(hit.y) <= 1.0)
+        {
+                n = vec3(2.0 * hit.x * k, 2.0 * -hit.y * j, 2.0 * hit.z * k);
+                return t0;
+        }
+        // try t1
+        hit = ro + rd * t1;
+        if (t1 > 0.0 && abs(hit.y) <= 1.0)
+        {
+                n = vec3(2.0 * hit.x * k, 2.0 * -hit.y * j, 2.0 * hit.z * k);
+                return t1;
+        }
+	return INFINITY;
+}
+
+`;
+
+
 BABYLON.Effect.IncludesShadersStore[ 'pathtracing_unit_box_intersect' ] = `
 
 float UnitBoxIntersect( vec3 ro, vec3 rd, out vec3 n )
@@ -652,6 +685,70 @@ float UnitBoxIntersect( vec3 ro, vec3 rd, out vec3 n )
         }
 
         return INFINITY;
+}
+
+`;
+
+
+BABYLON.Effect.IncludesShadersStore[ 'pathtracing_pyramid_frustum_intersect' ] = `
+
+float PyramidFrustumIntersect( vec3 ro, vec3 rd, float k, out vec3 n )
+{
+        float xt0, xt1, zt0, zt1;
+        float xt = INFINITY;
+        float zt = INFINITY;
+        vec3 hit0, hit1, xn, zn;
+	// valid range for k: 0.01 to 1.0 (1.0 being the default for cone with a sharp, pointed apex)
+	k = clamp(k, 0.01, 1.0);
+	
+        // first, intersect left and right sides of pyramid/frustum
+	float j = 1.0 / k;
+	float h = j * 2.0 - 1.0; // (k * 0.25) makes the normal cone's bottom circular base have a unit radius of 1.0
+	float a = j * rd.x * rd.x - (k * 0.25) * rd.y * rd.y;
+    	float b = 2.0 * (j * rd.x * ro.x - (k * 0.25) * rd.y * (ro.y - h));
+    	float c = j * ro.x * ro.x - (k * 0.25) * (ro.y - h) * (ro.y - h);
+	solveQuadratic(a, b, c, xt0, xt1);
+	hit0 = ro + rd * xt0;
+        hit1 = ro + rd * xt1;
+        if (xt0 > 0.0 && abs(hit0.x) <= 1.0 && abs(hit0.z) <= 1.0 && hit0.y <= 1.0 && (j * hit0.z * hit0.z - k * 0.25 * (hit0.y - h) * (hit0.y - h)) <= 0.0)
+	{
+                xt = xt0;
+                xn = vec3(2.0 * hit0.x * j, 2.0 * (hit0.y - h) * -(k * 0.25), 0.0);
+        }
+        else if (xt1 > 0.0 && abs(hit1.x) <= 1.0 && abs(hit1.z) <= 1.0 && hit1.y <= 1.0 && (j * hit1.z * hit1.z - k * 0.25 * (hit1.y - h) * (hit1.y - h)) <= 0.0)
+        {
+                xt = xt1;
+                xn = vec3(2.0 * hit1.x * j, 2.0 * (hit1.y - h) * -(k * 0.25), 0.0);
+        }
+	
+	// now intersect front and back sides of pyramid/frustum
+	a = j * rd.z * rd.z - (k * 0.25) * rd.y * rd.y;
+    	b = 2.0 * (j * rd.z * ro.z - (k * 0.25) * rd.y * (ro.y - h));
+    	c = j * ro.z * ro.z - (k * 0.25) * (ro.y - h) * (ro.y - h);
+	solveQuadratic(a, b, c, zt0, zt1);
+	hit0 = ro + rd * zt0;
+        hit1 = ro + rd * zt1;
+        if (zt0 > 0.0 && abs(hit0.x) <= 1.0 && abs(hit0.z) <= 1.0 && hit0.y <= 1.0 && (j * hit0.x * hit0.x - k * 0.25 * (hit0.y - h) * (hit0.y - h)) <= 0.0)
+        {
+                zt = zt0;
+                zn = vec3(0.0, 2.0 * (hit0.y - h) * -(k * 0.25), 2.0 * hit0.z * j);
+        }
+	else if (zt1 > 0.0 && abs(hit1.x) <= 1.0 && abs(hit1.z) <= 1.0 && hit1.y <= 1.0 && (j * hit1.x * hit1.x - k * 0.25 * (hit1.y - h) * (hit1.y - h)) <= 0.0)
+        {
+                zt = zt1;
+                zn = vec3(0.0, 2.0 * (hit1.y - h) * -(k * 0.25), 2.0 * hit1.z * j);
+        }
+	
+        if (xt <= zt)
+        {
+                n = xn;
+                return xt;
+        }
+        else
+        {
+                n = zn;
+                return zt;
+        }
 }
 
 `;
