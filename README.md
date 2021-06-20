@@ -19,6 +19,7 @@ Real-time PathTracing with global illumination and progressive rendering, all on
 New Transformed Quadric Geometry demo: https://erichlof.github.io/Babylon.js-PathTracing-Renderer/Transformed_Quadric_Geometry.html 
 <br>
 The following controls are specific to the above Transformed_Quadric_Geometry demo:
+* Z,X keys decrease/increase shape K parameter - range: 0-1 (affects Cone, PyramidFrustum, and Hyperboloid)
 * R,T,Y keys select transform operation mode - R: Rotation, T: Translation, Y: Scaling
 * F,G keys decrease/increase X value of the selected operation
 * H,J keys decrease/increase Y value of the selected operation
