@@ -11,10 +11,12 @@ uniform mat4 uCylinderInvMatrix;
 uniform mat4 uConeInvMatrix;
 uniform mat4 uParaboloidInvMatrix;
 uniform mat4 uHyperboloidInvMatrix;
+uniform mat4 uCapsuleInvMatrix;
 uniform mat4 uBoxInvMatrix;
 uniform mat4 uPyramidFrustumInvMatrix;
 uniform mat4 uDiskInvMatrix;
 uniform mat4 uRectangleInvMatrix;
+uniform mat4 uTorusInvMatrix;
 uniform float uQuadLightPlaneSelectionNumber;
 uniform float uQuadLightRadius;
 uniform float uShapeK;
@@ -49,6 +51,8 @@ Quad quads[N_QUADS];
 
 #include<pathtracing_unit_hyperboloid_intersect> // required on scenes with unit hyperboloids that will be translated, rotated, and scaled by their matrix transform
 
+#include<pathtracing_unit_capsule_intersect> // required on scenes with unit capsules that will be translated, rotated, and scaled by their matrix transform
+
 #include<pathtracing_unit_box_intersect> // required on scenes with unit boxes that will be translated, rotated, and scaled by their matrix transform
 
 #include<pathtracing_pyramid_frustum_intersect> // required on scenes with pyramids/frustums that will be translated, rotated, and scaled by their matrix transform
@@ -57,15 +61,19 @@ Quad quads[N_QUADS];
 
 #include<pathtracing_unit_rectangle_intersect> // required on scenes with unit rectangles that will be translated, rotated, and scaled by their matrix transform
 
+#include<pathtracing_unit_torus_intersect> // required on scenes with unit torii/rings that will be translated, rotated, and scaled by their matrix transform
+
 #include<pathtracing_quad_intersect> // required on scenes with quads (actually internally they are made up of 2 triangles)
 
 #include<pathtracing_sample_axis_aligned_quad_light> // required on scenes with axis-aligned quad area lights (quad must reside in either XY, XZ, or YZ planes) 
 
 
-//-----------------------------------------------------------
+//----------------------------------------------------------
 void SceneIntersect( Ray r, out Intersection intersection )
-//-----------------------------------------------------------
+//----------------------------------------------------------
 {
+	r.direction = normalize(r.direction);
+
 	vec3 hit, n;
 	float d;
 	int objectCount = 0;
@@ -79,14 +87,16 @@ void SceneIntersect( Ray r, out Intersection intersection )
         // transform ray into sphere's object space
 	rObj.origin = vec3( uSphereInvMatrix * vec4(r.origin, 1.0) );
 	rObj.direction = vec3( uSphereInvMatrix * vec4(r.direction, 0.0) );
-
-	d = UnitSphereIntersect( rObj.origin, rObj.direction );
+	// rObj.direction = normalize(rObj.direction);
+	d = UnitSphereIntersect( rObj.origin, rObj.direction, n );
+	// hit = rObj.origin + rObj.direction * d;
+	// hit = vec3( inverse(uSphereInvMatrix) * vec4(hit, 1.0) );
+	// d = distance(r.origin, hit);
 
 	if (d < intersection.t)
 	{
 		intersection.t = d;
-		hit = rObj.origin + rObj.direction * intersection.t;
-		intersection.normal = normalize(vec3(2.0 * hit.x, 2.0 * hit.y, 2.0 * hit.z));
+		intersection.normal = normalize(n);
 		intersection.normal = normalize(transpose(mat3(uSphereInvMatrix)) * intersection.normal);
 		intersection.color = vec3(1.0, 0.0, 0.0);
 		intersection.type = uAllShapesMatType;
@@ -98,13 +108,12 @@ void SceneIntersect( Ray r, out Intersection intersection )
 	rObj.origin = vec3( uCylinderInvMatrix * vec4(r.origin, 1.0) );
 	rObj.direction = vec3( uCylinderInvMatrix * vec4(r.direction, 0.0) );
 
-	d = UnitCylinderIntersect( rObj.origin, rObj.direction );
+	d = UnitCylinderIntersect( rObj.origin, rObj.direction, n );
 
 	if (d < intersection.t)
 	{
 		intersection.t = d;
-		hit = rObj.origin + rObj.direction * intersection.t;
-		intersection.normal = normalize(vec3(2.0 * hit.x, 0.0, 2.0 * hit.z));
+		intersection.normal = normalize(n);
 		intersection.normal = normalize(transpose(mat3(uCylinderInvMatrix)) * intersection.normal);
 		intersection.color = vec3(0.0, 1.0, 0.0);
 		intersection.type = uAllShapesMatType;
@@ -116,15 +125,12 @@ void SceneIntersect( Ray r, out Intersection intersection )
 	rObj.origin = vec3( uConeInvMatrix * vec4(r.origin, 1.0) );
 	rObj.direction = vec3( uConeInvMatrix * vec4(r.direction, 0.0) );
 
-	d = UnitConeIntersect( rObj.origin, rObj.direction, uShapeK );
+	d = UnitConeIntersect( rObj.origin, rObj.direction, uShapeK, n );
 
 	if (d < intersection.t)
 	{
 		intersection.t = d;
-		hit = rObj.origin + rObj.direction * intersection.t;
-		float j = 1.0 / uShapeK;
-		float h = j * 2.0 - 1.0;
-		intersection.normal = normalize(vec3(2.0 * hit.x * j, 2.0 * (h - hit.y) * (uShapeK * 0.25), 2.0 * hit.z * j));
+		intersection.normal = normalize(n);
 		intersection.normal = normalize(transpose(mat3(uConeInvMatrix)) * intersection.normal);
 		intersection.color = vec3(1.0, 1.0, 0.0);
 		intersection.type = uAllShapesMatType;
@@ -136,13 +142,12 @@ void SceneIntersect( Ray r, out Intersection intersection )
 	rObj.origin = vec3( uParaboloidInvMatrix * vec4(r.origin, 1.0) );
 	rObj.direction = vec3( uParaboloidInvMatrix * vec4(r.direction, 0.0) );
 
-	d = UnitParaboloidIntersect( rObj.origin, rObj.direction );
+	d = UnitParaboloidIntersect( rObj.origin, rObj.direction, n );
 
 	if (d < intersection.t)
 	{
 		intersection.t = d;
-		hit = rObj.origin + rObj.direction * intersection.t;
-		intersection.normal = normalize(vec3(2.0 * hit.x, 0.5, 2.0 * hit.z));
+		intersection.normal = normalize(n);
 		intersection.normal = normalize(transpose(mat3(uParaboloidInvMatrix)) * intersection.normal);
 		intersection.color = vec3(1.0, 0.0, 1.0);
 		intersection.type = uAllShapesMatType;
@@ -159,10 +164,26 @@ void SceneIntersect( Ray r, out Intersection intersection )
 	if (d < intersection.t)
 	{
 		intersection.t = d;
-		hit = rObj.origin + rObj.direction * intersection.t;
 		intersection.normal = normalize(n);
 		intersection.normal = normalize(transpose(mat3(uHyperboloidInvMatrix)) * intersection.normal);
 		intersection.color = vec3(0.2, 0.0, 1.0);
+		intersection.type = uAllShapesMatType;
+		intersection.objectID = float(objectCount);
+	}
+	objectCount++;
+
+	// transform ray into capsule's object space
+	rObj.origin = vec3( uCapsuleInvMatrix * vec4(r.origin, 1.0) );
+	rObj.direction = vec3( uCapsuleInvMatrix * vec4(r.direction, 0.0) );
+
+	d = UnitCapsuleIntersect( rObj.origin, rObj.direction, uShapeK, n );
+
+	if (d < intersection.t)
+	{
+		intersection.t = d;
+		intersection.normal = normalize(n);
+		intersection.normal = normalize(transpose(mat3(uCapsuleInvMatrix)) * intersection.normal);
+		intersection.color = vec3(0.5, 1.0, 0.0);
 		intersection.type = uAllShapesMatType;
 		intersection.objectID = float(objectCount);
 	}
@@ -177,7 +198,6 @@ void SceneIntersect( Ray r, out Intersection intersection )
 	if (d < intersection.t)
 	{
 		intersection.t = d;
-		hit = rObj.origin + rObj.direction * intersection.t;
 		intersection.normal = normalize(n);
 		intersection.normal = normalize(transpose(mat3(uBoxInvMatrix)) * intersection.normal);
 		intersection.color = vec3(0.0, 0.0, 1.0);
@@ -195,7 +215,6 @@ void SceneIntersect( Ray r, out Intersection intersection )
 	if (d < intersection.t)
 	{
 		intersection.t = d;
-		hit = rObj.origin + rObj.direction * intersection.t;
 		intersection.normal = normalize(n);
 		intersection.normal = normalize(transpose(mat3(uPyramidFrustumInvMatrix)) * intersection.normal);
 		intersection.color = vec3(0.0, 0.3, 1.0);
@@ -213,7 +232,6 @@ void SceneIntersect( Ray r, out Intersection intersection )
 	if (d < intersection.t)
 	{
 		intersection.t = d;
-		hit = rObj.origin + rObj.direction * intersection.t;
 		intersection.normal = vec3(0,-1,0);
 		intersection.normal = normalize(transpose(mat3(uDiskInvMatrix)) * intersection.normal);
 		intersection.color = vec3(0.0, 1.0, 0.5);
@@ -231,10 +249,26 @@ void SceneIntersect( Ray r, out Intersection intersection )
 	if (d < intersection.t)
 	{
 		intersection.t = d;
-		hit = rObj.origin + rObj.direction * intersection.t;
 		intersection.normal = vec3(0,-1,0);
 		intersection.normal = normalize(transpose(mat3(uRectangleInvMatrix)) * intersection.normal);
 		intersection.color = vec3(1.0, 0.3, 0.0);
+		intersection.type = uAllShapesMatType;
+		intersection.objectID = float(objectCount);
+	}
+	objectCount++;
+
+	// transform ray into torus's object space
+	rObj.origin = vec3( uTorusInvMatrix * vec4(r.origin, 1.0) );
+	rObj.direction = vec3( uTorusInvMatrix * vec4(r.direction, 0.0) );
+
+	d = UnitTorusIntersect( rObj.origin, rObj.direction, uShapeK, n );
+	
+	if (d < intersection.t)
+	{
+		intersection.t = d;
+		intersection.normal = normalize(n);
+		intersection.normal = normalize(transpose(mat3(uTorusInvMatrix)) * intersection.normal);
+		intersection.color = vec3(0.5, 0.0, 1.0);
 		intersection.type = uAllShapesMatType;
 		intersection.objectID = float(objectCount);
 	}
