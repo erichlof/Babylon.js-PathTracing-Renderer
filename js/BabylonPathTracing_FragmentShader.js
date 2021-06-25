@@ -45,7 +45,7 @@ UnitSphere spheres[N_SPHERES];
 void SceneIntersect( Ray r, out Intersection intersection )
 //-----------------------------------------------------------
 {
-	vec3 hit;
+	vec3 hit, n;
 	float d;
 	int objectCount = 0;
 	// initialize intersection fields
@@ -58,13 +58,12 @@ void SceneIntersect( Ray r, out Intersection intersection )
 	rObj.origin = vec3( uLeftSphereInvMatrix * vec4(r.origin, 1.0) );
 	rObj.direction = vec3( uLeftSphereInvMatrix * vec4(r.direction, 0.0) );
 
-	d = UnitSphereIntersect( rObj.origin, rObj.direction );
+	d = UnitSphereIntersect( rObj.origin, rObj.direction, n );
 
 	if (d < intersection.t)
 	{
 		intersection.t = d;
-		hit = rObj.origin + rObj.direction * intersection.t;
-		intersection.normal = normalize(vec3(2.0 * hit.x, 2.0 * hit.y, 2.0 * hit.z));
+		intersection.normal = normalize(n);
 		intersection.normal = normalize(transpose(mat3(uLeftSphereInvMatrix)) * intersection.normal);
 		intersection.color = spheres[0].color;
 		intersection.type = spheres[0].type;
@@ -76,13 +75,12 @@ void SceneIntersect( Ray r, out Intersection intersection )
 	rObj.origin = vec3( uRightSphereInvMatrix * vec4(r.origin, 1.0) );
 	rObj.direction = vec3( uRightSphereInvMatrix * vec4(r.direction, 0.0) );
 
-	d = UnitSphereIntersect( rObj.origin, rObj.direction );
+	d = UnitSphereIntersect( rObj.origin, rObj.direction, n );
 
 	if (d < intersection.t)
 	{
 		intersection.t = d;
-		hit = rObj.origin + rObj.direction * intersection.t;
-		intersection.normal = normalize(vec3(2.0 * hit.x, 2.0 * hit.y, 2.0 * hit.z));
+		intersection.normal = normalize(n);
 		intersection.normal = normalize(transpose(mat3(uRightSphereInvMatrix)) * intersection.normal);
 		intersection.color = spheres[1].color;
 		intersection.type = spheres[1].type;
