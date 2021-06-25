@@ -555,14 +555,27 @@ float SphereIntersect( float rad, vec3 pos, Ray ray )
 
 BABYLON.Effect.IncludesShadersStore[ 'pathtracing_unit_sphere_intersect' ] = `
 
-float UnitSphereIntersect( vec3 ro, vec3 rd )
+float UnitSphereIntersect( vec3 ro, vec3 rd, out vec3 n )
 {
+        vec3 hit;
 	float t0, t1;
 	float a = dot(rd, rd);
 	float b = 2.0 * dot(rd, ro);
 	float c = dot(ro, ro) - 1.0; // - (rad * rad) = - (1.0 * 1.0) = - 1.0 
 	solveQuadratic(a, b, c, t0, t1);
-	return t0 > 0.0 ? t0 : t1 > 0.0 ? t1 : INFINITY;
+	if (t0 > 0.0)
+        {
+                hit = ro + rd * t0;
+                n = vec3(2.0 * hit.x, 2.0 * hit.y, 2.0 * hit.z);
+                return t0;
+        }
+        if (t1 > 0.0)
+        {
+                hit = ro + rd * t1;
+                n = vec3(2.0 * hit.x, 2.0 * hit.y, 2.0 * hit.z);
+                return t1;
+        }
+        return INFINITY;
 }
 
 `;
@@ -570,16 +583,28 @@ float UnitSphereIntersect( vec3 ro, vec3 rd )
 
 BABYLON.Effect.IncludesShadersStore[ 'pathtracing_unit_cylinder_intersect' ] = `
 
-float UnitCylinderIntersect( vec3 ro, vec3 rd )
+float UnitCylinderIntersect( vec3 ro, vec3 rd, out vec3 n )
 {
+        vec3 hit;
 	float t0, t1;
 	float a = (rd.x * rd.x + rd.z * rd.z);
     	float b = 2.0 * (rd.x * ro.x + rd.z * ro.z);
     	float c = (ro.x * ro.x + ro.z * ro.z) - 1.0; 
 	solveQuadratic(a, b, c, t0, t1);
-        vec3 hit0 = ro + rd * t0;
-        vec3 hit1 = ro + rd * t1;
-	return (t0 > 0.0 && abs(hit0.y) <= 1.0) ? t0 : (t1 > 0.0 && abs(hit1.y) <= 1.0) ? t1 : INFINITY;
+
+        hit = ro + rd * t0;
+        if (t0 > 0.0 && abs(hit.y) <= 1.0)
+        {
+                n = vec3(2.0 * hit.x, 0.0, 2.0 * hit.z);
+                return t0;
+        }
+        hit = ro + rd * t1;
+        if (t1 > 0.0 && abs(hit.y) <= 1.0)
+        {
+                n = vec3(2.0 * hit.x, 0.0, 2.0 * hit.z);
+                return t1;
+        }
+        return INFINITY;
 }
 
 `;
@@ -587,8 +612,9 @@ float UnitCylinderIntersect( vec3 ro, vec3 rd )
 
 BABYLON.Effect.IncludesShadersStore[ 'pathtracing_unit_cone_intersect' ] = `
 
-float UnitConeIntersect( vec3 ro, vec3 rd, float k )
+float UnitConeIntersect( vec3 ro, vec3 rd, float k, out vec3 n )
 {
+        vec3 hit;
 	float t0, t1;
 	// valid range for k: 0.01 to 1.0 (1.0 being the default for cone with a sharp, pointed apex)
 	k = clamp(k, 0.01, 1.0);
@@ -599,9 +625,20 @@ float UnitConeIntersect( vec3 ro, vec3 rd, float k )
     	float b = 2.0 * (j * rd.x * ro.x + j * rd.z * ro.z - (k * 0.25) * rd.y * (ro.y - h));
     	float c = j * ro.x * ro.x + j * ro.z * ro.z - (k * 0.25) * (ro.y - h) * (ro.y - h);
 	solveQuadratic(a, b, c, t0, t1);
-        vec3 hit0 = ro + rd * t0;
-        vec3 hit1 = ro + rd * t1;
-	return (t0 > 0.0 && abs(hit0.y) <= 1.0) ? t0 : (t1 > 0.0 && abs(hit1.y) <= 1.0) ? t1 : INFINITY;
+
+        hit = ro + rd * t0;
+        if (t0 > 0.0 && abs(hit.y) <= 1.0)
+        {
+                n = vec3(2.0 * hit.x * j, 2.0 * (h - hit.y) * (k * 0.25), 2.0 * hit.z * j);
+                return t0;
+        }
+        hit = ro + rd * t1;
+        if (t1 > 0.0 && abs(hit.y) <= 1.0)
+        {
+                n = vec3(2.0 * hit.x * j, 2.0 * (h - hit.y) * (k * 0.25), 2.0 * hit.z * j);
+                return t1;
+        }
+        return INFINITY;
 }
 
 `;
@@ -609,17 +646,29 @@ float UnitConeIntersect( vec3 ro, vec3 rd, float k )
 
 BABYLON.Effect.IncludesShadersStore[ 'pathtracing_unit_paraboloid_intersect' ] = `
 
-float UnitParaboloidIntersect( vec3 ro, vec3 rd )
+float UnitParaboloidIntersect( vec3 ro, vec3 rd, out vec3 n )
 {
+        vec3 hit;
 	float t0, t1;
 	float k = 0.5;
 	float a = rd.x * rd.x + rd.z * rd.z;
     	float b = 2.0 * (rd.x * ro.x + rd.z * ro.z) + k * rd.y;
     	float c = ro.x * ro.x + ro.z * ro.z + k * (ro.y - 1.0); 
 	solveQuadratic(a, b, c, t0, t1);
-        vec3 hit0 = ro + rd * t0;
-        vec3 hit1 = ro + rd * t1;
-	return (t0 > 0.0 && abs(hit0.y) <= 1.0) ? t0 : (t1 > 0.0 && abs(hit1.y) <= 1.0) ? t1 : INFINITY;
+
+        hit = ro + rd * t0;
+        if (t0 > 0.0 && abs(hit.y) <= 1.0)
+        { 
+                n = vec3(2.0 * hit.x, 0.5, 2.0 * hit.z);
+                return t0;
+        }
+        hit = ro + rd * t1;
+        if (t1 > 0.0 && abs(hit.y) <= 1.0)
+        { 
+                n = vec3(2.0 * hit.x, 0.5, 2.0 * hit.z);
+                return t1;
+        }
+        return INFINITY;
 }
 
 `;
@@ -629,6 +678,7 @@ BABYLON.Effect.IncludesShadersStore[ 'pathtracing_unit_hyperboloid_intersect' ] 
 
 float UnitHyperboloidIntersect( vec3 ro, vec3 rd, float k, out vec3 n )
 {
+        vec3 hit;
 	float t0, t1;
         // k initially comes in as a value between 0.01 and 1.0
         k = k * k * k * k + 0.0012;
@@ -639,13 +689,12 @@ float UnitHyperboloidIntersect( vec3 ro, vec3 rd, float k, out vec3 n )
 	float c = (k * ro.x * ro.x + k * ro.z * ro.z - j * ro.y * ro.y) - 1.0;
 	solveQuadratic(a, b, c, t0, t1);
 
-        vec3 hit = ro + rd * t0;
+        hit = ro + rd * t0;
         if (t0 > 0.0 && abs(hit.y) <= 1.0)
         {
                 n = vec3(2.0 * hit.x * k, 2.0 * -hit.y * j, 2.0 * hit.z * k);
                 return t0;
         }
-        // try t1
         hit = ro + rd * t1;
         if (t1 > 0.0 && abs(hit.y) <= 1.0)
         {
@@ -653,6 +702,85 @@ float UnitHyperboloidIntersect( vec3 ro, vec3 rd, float k, out vec3 n )
                 return t1;
         }
 	return INFINITY;
+}
+
+`;
+
+
+BABYLON.Effect.IncludesShadersStore[ 'pathtracing_unit_capsule_intersect' ] = `
+
+float UnitCapsuleIntersect( vec3 ro, vec3 rd, float k, out vec3 n )
+{
+        k += 0.25;
+
+        vec3 hit;
+	float t, t0, t1;
+        float s0t0, s0t1, s1t0, s1t1;
+        // first test if any of the first intersections (t0's) of both sphere caps and cylinder are valid - if so, return that t0
+        
+        // intersect unit-radius sphere cap located at top opening of cylinder
+	vec3 s0pos = vec3(0, k, 0);
+	vec3 L = ro - s0pos;
+	float a = dot(rd, rd);
+	float b = 2.0 * dot(rd, L);
+	float c = dot(L, L) - 1.0;
+	solveQuadratic(a, b, c, s0t0, s0t1);
+	hit = ro + rd * s0t0;
+        if (s0t0 > 0.0 && hit.y >= k)
+        {
+                n = vec3(2.0 * hit.x, 2.0 * (hit.y - k), 2.0 * hit.z);
+                return s0t0;
+        }
+        
+	// intersect unit-radius sphere cap located at bottom opening of cylinder
+	vec3 s1pos = vec3(0, -k, 0);
+	L = ro - s1pos;
+	a = dot(rd, rd);
+	b = 2.0 * dot(rd, L);
+	c = dot(L, L) - 1.0;
+	solveQuadratic(a, b, c, s1t0, s1t1);
+	hit = ro + rd * s1t0;
+        if (s1t0 > 0.0 && hit.y <= -k)
+        {
+                n = vec3(2.0 * hit.x, 2.0 * (hit.y + k), 2.0 * hit.z);
+                return s1t0;
+        }
+        
+        // intersect unit cylinder
+        a = (rd.x * rd.x + rd.z * rd.z);
+    	b = 2.0 * (rd.x * ro.x + rd.z * ro.z);
+    	c = (ro.x * ro.x + ro.z * ro.z) - 1.0;
+	solveQuadratic(a, b, c, t0, t1);
+	hit = ro + rd * t0;
+        if (t0 > 0.0 && abs(hit.y) <= k)
+        {
+                n = vec3(2.0 * hit.x, 0.0, 2.0 * hit.z);
+                return t0;
+        }
+
+        // lastly, test if any of the 2nd intersections (t1's) of both sphere caps and cylinder are valid - if so, return that t1 
+        hit = ro + rd * s0t1;
+        if (s0t1 > 0.0 && hit.y >= k)
+        {
+                n = vec3(2.0 * hit.x, 2.0 * (hit.y - k), 2.0 * hit.z);
+                return s0t1;
+        }
+
+        hit = ro + rd * s1t1;
+        if (s1t1 > 0.0 && hit.y <= -k)
+        {
+                n = vec3(2.0 * hit.x, 2.0 * (hit.y + k), 2.0 * hit.z);
+                return s1t1;
+        }
+
+        hit = ro + rd * t1;
+        if (t1 > 0.0 && abs(hit.y) <= k)
+        {
+                n = vec3(2.0 * hit.x, 0.0, 2.0 * hit.z);
+                return t1;
+        }
+        
+        return INFINITY;
 }
 
 `;
@@ -777,6 +905,70 @@ float UnitRectangleIntersect( vec3 ro, vec3 rd )
 
 `;
 
+
+BABYLON.Effect.IncludesShadersStore[ 'pathtracing_unit_torus_intersect' ] = `
+
+// Thanks to koiava for the ray marching strategy! https://www.shadertoy.com/user/koiava
+
+float map_Torus( in vec3 pos, float k )
+{
+	return length( vec2(length(pos.xz) - (1.0-k), pos.y) ) - k;
+}
+
+float UnitTorusIntersect( vec3 ro, vec3 rd, float k, out vec3 n )
+{	
+        // unit torus - outer radius is always 1.0 (in torus object space)
+        // k represents the inner radius, conservative range: 
+        //    0.01 (thickest torus, inner radius is almost at center (0.01) while outer radius is way out at 1.0)...
+        // to 0.99 (very thin torus, inner radius (0.99) is right next to outer radius which is at 1.0)
+        k = 1.0 - clamp(k, 0.01, 0.99);
+
+        float d = INFINITY;
+	vec3 hit;
+
+        float tc, t0, t1;
+	float a = (rd.x * rd.x + rd.z * rd.z);
+    	float b = 2.0 * (rd.x * ro.x + rd.z * ro.z);
+    	float c = (ro.x * ro.x + ro.z * ro.z) - 1.0; 
+	solveQuadratic(a, b, c, t0, t1);
+        vec3 hit0 = ro + rd * t0;
+        vec3 hit1 = ro + rd * t1;
+	tc = (t0 > 0.0 && abs(hit0.y) <= k) ? t0 : (t1 > 0.0 && abs(hit1.y) <= k) ? t1 : INFINITY;
+
+        float d0 = (ro.y + k) / -rd.y;
+	hit = ro + rd * d0;
+	d0 = (d0 > 0.0 && hit.x * hit.x + hit.z * hit.z <= 1.0) ? d0 : INFINITY; // disk with unit radius
+	float d1 = (ro.y - k) / -rd.y;
+	hit = ro + rd * d1;
+	d1 = (d1 > 0.0 && hit.x * hit.x + hit.z * hit.z <= 1.0) ? d1 : INFINITY; // disk with unit radius
+	
+        if (tc == INFINITY && d0 == INFINITY && d1 == INFINITY)
+                return INFINITY;
+
+	vec3 pos;
+	float t = min(min(d0, d1), tc);
+        
+	for (int i = 0; i < 500; i++)
+	{
+                pos = ro + rd * t;
+		d = map_Torus(pos, k);
+		if (abs(d) < 0.01) break;
+		t += d;
+	}
+	
+        if (abs(d) < 0.01)
+        {
+                vec2 e = vec2(1.0,-1.0)*0.5773*0.0002;
+                n  = normalize( e.xyy*map_Torus( pos + e.xyy, k ) + 
+                                e.yyx*map_Torus( pos + e.yyx, k ) + 
+                                e.yxy*map_Torus( pos + e.yxy, k ) + 
+                                e.xxx*map_Torus( pos + e.xxx, k ) );
+                return t;
+        }
+        return INFINITY;
+}
+
+`;
 
 
 BABYLON.Effect.IncludesShadersStore[ 'pathtracing_quad_intersect' ] = `
