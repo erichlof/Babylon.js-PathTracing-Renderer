@@ -35,7 +35,7 @@ let uCameraIsMoving = false; // lets the path tracer know if the camera is being
 let shapeRadius = 10;
 let wallRadius = 50;
 let sphereTransformNode, cylinderTransformNode, coneTransformNode, paraboloidTransformNode, hyperboloidTransformNode, capsuleTransformNode,
-        boxTransformNode, pyramidFrustumTransformNode, diskTransformNode, rectangleTransformNode, torusTransformNode;
+        flattenedRingTransformNode, boxTransformNode, pyramidFrustumTransformNode, diskTransformNode, rectangleTransformNode, torusTransformNode;
 let transformOperation = 0; // 0 = rotation, 1 = translation, 2 = scale
 
 // scene/demo-specific uniforms
@@ -49,6 +49,7 @@ let uConeInvMatrix = new BABYLON.Matrix();
 let uParaboloidInvMatrix = new BABYLON.Matrix();
 let uHyperboloidInvMatrix = new BABYLON.Matrix();
 let uCapsuleInvMatrix = new BABYLON.Matrix();
+let uFlattenedRingInvMatrix = new BABYLON.Matrix();
 let uBoxInvMatrix = new BABYLON.Matrix();
 let uPyramidFrustumInvMatrix = new BABYLON.Matrix();
 let uDiskInvMatrix = new BABYLON.Matrix();
@@ -166,39 +167,43 @@ cylinderTransformNode.position.set(wallRadius * 0.75, -wallRadius + shapeRadius 
 cylinderTransformNode.scaling.set(shapeRadius, shapeRadius, shapeRadius);
 
 coneTransformNode = new BABYLON.TransformNode();
-coneTransformNode.position.set(-wallRadius * 0.15, -wallRadius + shapeRadius + 0.01, -wallRadius * 0.6);
+coneTransformNode.position.set(-wallRadius * 0.25, -wallRadius + shapeRadius + 0.01, wallRadius * 0.0);
 coneTransformNode.scaling.set(shapeRadius, shapeRadius, shapeRadius);
 
 paraboloidTransformNode = new BABYLON.TransformNode();
-paraboloidTransformNode.position.set(wallRadius * 0.25, -wallRadius + shapeRadius + 0.01, -wallRadius * 0.2);
+paraboloidTransformNode.position.set(wallRadius * 0.25, -wallRadius + shapeRadius + 0.01, wallRadius * 0.0);
 paraboloidTransformNode.scaling.set(shapeRadius, shapeRadius, shapeRadius);
 
 hyperboloidTransformNode = new BABYLON.TransformNode();
-hyperboloidTransformNode.position.set(wallRadius * 0.7, -wallRadius + shapeRadius + 0.01, -wallRadius * 0.25);
+hyperboloidTransformNode.position.set(-wallRadius * 0.25, -wallRadius + shapeRadius + 0.01, -wallRadius * 0.75);
 hyperboloidTransformNode.scaling.set(shapeRadius, shapeRadius, shapeRadius);
 
 capsuleTransformNode = new BABYLON.TransformNode();
-capsuleTransformNode.position.set(-wallRadius * 0.25, -wallRadius + (2.25*shapeRadius) + 0.01, wallRadius * 0.45);
+capsuleTransformNode.position.set(-wallRadius * 0.25, -wallRadius + (2.25*shapeRadius) + 0.01, wallRadius * 0.75);
 capsuleTransformNode.scaling.set(shapeRadius, shapeRadius, shapeRadius);
 
+flattenedRingTransformNode = new BABYLON.TransformNode();
+flattenedRingTransformNode.position.set(wallRadius * 0.75, -wallRadius + shapeRadius + 0.01, wallRadius * 0.0);
+flattenedRingTransformNode.scaling.set(shapeRadius, shapeRadius, shapeRadius);
+
 boxTransformNode = new BABYLON.TransformNode();
-boxTransformNode.position.set(wallRadius * 0.25, -wallRadius + shapeRadius + 0.01, wallRadius * 0.45);
+boxTransformNode.position.set(wallRadius * 0.25, -wallRadius + shapeRadius + 0.01, wallRadius * 0.75);
 boxTransformNode.scaling.set(shapeRadius, shapeRadius, shapeRadius);
 
 pyramidFrustumTransformNode = new BABYLON.TransformNode();
-pyramidFrustumTransformNode.position.set(-wallRadius * 0.5, -wallRadius + shapeRadius + 0.01, -wallRadius * 0.2);
+pyramidFrustumTransformNode.position.set(-wallRadius * 0.75, -wallRadius + shapeRadius + 0.01, wallRadius * 0.0);
 pyramidFrustumTransformNode.scaling.set(shapeRadius, shapeRadius, shapeRadius);
 
 diskTransformNode = new BABYLON.TransformNode();
-diskTransformNode.position.set(wallRadius * 0.75, -wallRadius + shapeRadius + 0.01, wallRadius * 0.45);
+diskTransformNode.position.set(wallRadius * 0.75, -wallRadius + shapeRadius + 0.01, wallRadius * 0.75);
 diskTransformNode.scaling.set(shapeRadius, shapeRadius, shapeRadius);
 
 rectangleTransformNode = new BABYLON.TransformNode();
-rectangleTransformNode.position.set(-wallRadius * 0.75, -wallRadius + shapeRadius + 0.01, wallRadius * 0.45);
+rectangleTransformNode.position.set(-wallRadius * 0.75, -wallRadius + shapeRadius + 0.01, wallRadius * 0.75);
 rectangleTransformNode.scaling.set(shapeRadius, shapeRadius, shapeRadius);
 
 torusTransformNode = new BABYLON.TransformNode();
-torusTransformNode.position.set(wallRadius * 0.25, -wallRadius + shapeRadius + 0.01, -wallRadius * 0.8);
+torusTransformNode.position.set(wallRadius * 0.25, -wallRadius + shapeRadius + 0.01, -wallRadius * 0.75);
 torusTransformNode.scaling.set(shapeRadius, shapeRadius, shapeRadius);
 
 
@@ -263,7 +268,7 @@ const pathTracing_eWrapper = new BABYLON.EffectWrapper({
         fragmentShader: BABYLON.Effect.ShadersStore["pathTracingFragmentShader"],
         uniformNames: ["uResolution", "uRandomVec2", "uULen", "uVLen", "uTime", "uFrameCounter", "uSampleCounter", "uEPS_intersect", "uCameraMatrix", "uApertureSize", "uFocusDistance", 
                 "uCameraIsMoving", "uShapeK", "uAllShapesMatType", "uTorusInvMatrix", "uSphereInvMatrix", "uCylinderInvMatrix", "uConeInvMatrix", "uParaboloidInvMatrix", "uHyperboloidInvMatrix", 
-                "uCapsuleInvMatrix", "uBoxInvMatrix", "uPyramidFrustumInvMatrix", "uDiskInvMatrix", "uRectangleInvMatrix", "uQuadLightPlaneSelectionNumber", "uQuadLightRadius"],
+                "uCapsuleInvMatrix", "uFlattenedRingInvMatrix", "uBoxInvMatrix", "uPyramidFrustumInvMatrix", "uDiskInvMatrix", "uRectangleInvMatrix", "uQuadLightPlaneSelectionNumber", "uQuadLightRadius"],
         samplerNames: ["previousBuffer", "blueNoiseTexture"],
         name: "pathTracingEffectWrapper"
 });
@@ -297,6 +302,7 @@ pathTracing_eWrapper.onApplyObservable.add(() =>
         pathTracing_eWrapper.effect.setMatrix("uParaboloidInvMatrix", uParaboloidInvMatrix);
         pathTracing_eWrapper.effect.setMatrix("uHyperboloidInvMatrix", uHyperboloidInvMatrix);
         pathTracing_eWrapper.effect.setMatrix("uCapsuleInvMatrix", uCapsuleInvMatrix);
+        pathTracing_eWrapper.effect.setMatrix("uFlattenedRingInvMatrix", uFlattenedRingInvMatrix);
         pathTracing_eWrapper.effect.setMatrix("uBoxInvMatrix", uBoxInvMatrix);
         pathTracing_eWrapper.effect.setMatrix("uPyramidFrustumInvMatrix", uPyramidFrustumInvMatrix);
         pathTracing_eWrapper.effect.setMatrix("uDiskInvMatrix", uDiskInvMatrix);
@@ -523,6 +529,7 @@ engine.runRenderLoop(function ()
                         paraboloidTransformNode.rotation.x -= 1 * frameTime;
                         hyperboloidTransformNode.rotation.x -= 1 * frameTime;
                         capsuleTransformNode.rotation.x -= 1 * frameTime;
+                        flattenedRingTransformNode.rotation.x -= 1 * frameTime;
                         boxTransformNode.rotation.x -= 1 * frameTime;
                         pyramidFrustumTransformNode.rotation.x -= 1 * frameTime;
                         diskTransformNode.rotation.x -= 1 * frameTime;
@@ -538,6 +545,7 @@ engine.runRenderLoop(function ()
                         paraboloidTransformNode.rotation.x += 1 * frameTime;
                         hyperboloidTransformNode.rotation.x += 1 * frameTime;
                         capsuleTransformNode.rotation.x += 1 * frameTime;
+                        flattenedRingTransformNode.rotation.x += 1 * frameTime;
                         boxTransformNode.rotation.x += 1 * frameTime;
                         pyramidFrustumTransformNode.rotation.x += 1 * frameTime;
                         diskTransformNode.rotation.x += 1 * frameTime;
@@ -553,6 +561,7 @@ engine.runRenderLoop(function ()
                         paraboloidTransformNode.rotation.y -= 1 * frameTime;
                         hyperboloidTransformNode.rotation.y -= 1 * frameTime;
                         capsuleTransformNode.rotation.y -= 1 * frameTime;
+                        flattenedRingTransformNode.rotation.y -= 1 * frameTime;
                         boxTransformNode.rotation.y -= 1 * frameTime;
                         pyramidFrustumTransformNode.rotation.y -= 1 * frameTime;
                         diskTransformNode.rotation.y -= 1 * frameTime;
@@ -568,6 +577,7 @@ engine.runRenderLoop(function ()
                         paraboloidTransformNode.rotation.y += 1 * frameTime;
                         hyperboloidTransformNode.rotation.y += 1 * frameTime;
                         capsuleTransformNode.rotation.y += 1 * frameTime;
+                        flattenedRingTransformNode.rotation.y += 1 * frameTime;
                         boxTransformNode.rotation.y += 1 * frameTime;
                         pyramidFrustumTransformNode.rotation.y += 1 * frameTime;
                         diskTransformNode.rotation.y += 1 * frameTime;
@@ -583,6 +593,7 @@ engine.runRenderLoop(function ()
                         paraboloidTransformNode.rotation.z -= 1 * frameTime;
                         hyperboloidTransformNode.rotation.z -= 1 * frameTime;
                         capsuleTransformNode.rotation.z -= 1 * frameTime;
+                        flattenedRingTransformNode.rotation.z -= 1 * frameTime;
                         boxTransformNode.rotation.z -= 1 * frameTime;
                         pyramidFrustumTransformNode.rotation.z -= 1 * frameTime;
                         diskTransformNode.rotation.z -= 1 * frameTime;
@@ -598,6 +609,7 @@ engine.runRenderLoop(function ()
                         paraboloidTransformNode.rotation.z += 1 * frameTime;
                         hyperboloidTransformNode.rotation.z += 1 * frameTime;
                         capsuleTransformNode.rotation.z += 1 * frameTime;
+                        flattenedRingTransformNode.rotation.z += 1 * frameTime;
                         boxTransformNode.rotation.z += 1 * frameTime;
                         pyramidFrustumTransformNode.rotation.z += 1 * frameTime;
                         diskTransformNode.rotation.z += 1 * frameTime;
@@ -616,6 +628,7 @@ engine.runRenderLoop(function ()
                         paraboloidTransformNode.position.x -= 20 * frameTime;
                         hyperboloidTransformNode.position.x -= 20 * frameTime;
                         capsuleTransformNode.position.x -= 20 * frameTime;
+                        flattenedRingTransformNode.position.x -= 20 * frameTime;
                         boxTransformNode.position.x -= 20 * frameTime;
                         pyramidFrustumTransformNode.position.x -= 20 * frameTime;
                         diskTransformNode.position.x -= 20 * frameTime;
@@ -631,6 +644,7 @@ engine.runRenderLoop(function ()
                         paraboloidTransformNode.position.x += 20 * frameTime;
                         hyperboloidTransformNode.position.x += 20 * frameTime;
                         capsuleTransformNode.position.x += 20 * frameTime;
+                        flattenedRingTransformNode.position.x += 20 * frameTime;
                         boxTransformNode.position.x += 20 * frameTime;
                         pyramidFrustumTransformNode.position.x += 20 * frameTime;
                         diskTransformNode.position.x += 20 * frameTime;
@@ -646,6 +660,7 @@ engine.runRenderLoop(function ()
                         paraboloidTransformNode.position.y -= 20 * frameTime;
                         hyperboloidTransformNode.position.y -= 20 * frameTime;
                         capsuleTransformNode.position.y -= 20 * frameTime;
+                        flattenedRingTransformNode.position.y -= 20 * frameTime;
                         boxTransformNode.position.y -= 20 * frameTime;
                         pyramidFrustumTransformNode.position.y -= 20 * frameTime;
                         diskTransformNode.position.y -= 20 * frameTime;
@@ -661,6 +676,7 @@ engine.runRenderLoop(function ()
                         paraboloidTransformNode.position.y += 20 * frameTime;
                         hyperboloidTransformNode.position.y += 20 * frameTime;
                         capsuleTransformNode.position.y += 20 * frameTime;
+                        flattenedRingTransformNode.position.y += 20 * frameTime;
                         boxTransformNode.position.y += 20 * frameTime;
                         pyramidFrustumTransformNode.position.y += 20 * frameTime;
                         diskTransformNode.position.y += 20 * frameTime;
@@ -676,6 +692,7 @@ engine.runRenderLoop(function ()
                         paraboloidTransformNode.position.z -= 20 * frameTime;
                         hyperboloidTransformNode.position.z -= 20 * frameTime;
                         capsuleTransformNode.position.z -= 20 * frameTime;
+                        flattenedRingTransformNode.position.z -= 20 * frameTime;
                         boxTransformNode.position.z -= 20 * frameTime;
                         pyramidFrustumTransformNode.position.z -= 20 * frameTime;
                         diskTransformNode.position.z -= 20 * frameTime;
@@ -691,6 +708,7 @@ engine.runRenderLoop(function ()
                         paraboloidTransformNode.position.z += 20 * frameTime;
                         hyperboloidTransformNode.position.z += 20 * frameTime;
                         capsuleTransformNode.position.z += 20 * frameTime;
+                        flattenedRingTransformNode.position.z += 20 * frameTime;
                         boxTransformNode.position.z += 20 * frameTime;
                         pyramidFrustumTransformNode.position.z += 20 * frameTime;
                         diskTransformNode.position.z += 20 * frameTime;
@@ -709,6 +727,7 @@ engine.runRenderLoop(function ()
                         paraboloidTransformNode.scaling.x -= 10 * frameTime;
                         hyperboloidTransformNode.scaling.x -= 10 * frameTime;
                         capsuleTransformNode.scaling.x -= 10 * frameTime;
+                        flattenedRingTransformNode.scaling.x -= 10 * frameTime;
                         boxTransformNode.scaling.x -= 10 * frameTime;
                         pyramidFrustumTransformNode.scaling.x -= 10 * frameTime;
                         diskTransformNode.scaling.x -= 10 * frameTime;
@@ -724,6 +743,7 @@ engine.runRenderLoop(function ()
                         paraboloidTransformNode.scaling.x += 10 * frameTime;
                         hyperboloidTransformNode.scaling.x += 10 * frameTime;
                         capsuleTransformNode.scaling.x += 10 * frameTime;
+                        flattenedRingTransformNode.scaling.x += 10 * frameTime;
                         boxTransformNode.scaling.x += 10 * frameTime;
                         pyramidFrustumTransformNode.scaling.x += 10 * frameTime;
                         diskTransformNode.scaling.x += 10 * frameTime;
@@ -739,6 +759,7 @@ engine.runRenderLoop(function ()
                         paraboloidTransformNode.scaling.y -= 10 * frameTime;
                         hyperboloidTransformNode.scaling.y -= 10 * frameTime;
                         capsuleTransformNode.scaling.y -= 10 * frameTime;
+                        flattenedRingTransformNode.scaling.y -= 10 * frameTime;
                         boxTransformNode.scaling.y -= 10 * frameTime;
                         pyramidFrustumTransformNode.scaling.y -= 10 * frameTime;
                         diskTransformNode.scaling.y -= 10 * frameTime;
@@ -754,6 +775,7 @@ engine.runRenderLoop(function ()
                         paraboloidTransformNode.scaling.y += 10 * frameTime;
                         hyperboloidTransformNode.scaling.y += 10 * frameTime;
                         capsuleTransformNode.scaling.y += 10 * frameTime;
+                        flattenedRingTransformNode.scaling.y += 10 * frameTime;
                         boxTransformNode.scaling.y += 10 * frameTime;
                         pyramidFrustumTransformNode.scaling.y += 10 * frameTime;
                         diskTransformNode.scaling.y += 10 * frameTime;
@@ -769,6 +791,7 @@ engine.runRenderLoop(function ()
                         paraboloidTransformNode.scaling.z -= 10 * frameTime;
                         hyperboloidTransformNode.scaling.z -= 10 * frameTime;
                         capsuleTransformNode.scaling.z -= 10 * frameTime;
+                        flattenedRingTransformNode.scaling.z -= 10 * frameTime;
                         boxTransformNode.scaling.z -= 10 * frameTime;
                         pyramidFrustumTransformNode.scaling.z -= 10 * frameTime;
                         diskTransformNode.scaling.z -= 10 * frameTime;
@@ -784,6 +807,7 @@ engine.runRenderLoop(function ()
                         paraboloidTransformNode.scaling.z += 10 * frameTime;
                         hyperboloidTransformNode.scaling.z += 10 * frameTime;
                         capsuleTransformNode.scaling.z += 10 * frameTime;
+                        flattenedRingTransformNode.scaling.z += 10 * frameTime;
                         boxTransformNode.scaling.z += 10 * frameTime;
                         pyramidFrustumTransformNode.scaling.z += 10 * frameTime;
                         diskTransformNode.scaling.z += 10 * frameTime;
@@ -855,6 +879,8 @@ engine.runRenderLoop(function ()
         uHyperboloidInvMatrix.invert();
         uCapsuleInvMatrix.copyFrom(capsuleTransformNode.getWorldMatrix());
         uCapsuleInvMatrix.invert();
+        uFlattenedRingInvMatrix.copyFrom(flattenedRingTransformNode.getWorldMatrix());
+        uFlattenedRingInvMatrix.invert();
         uBoxInvMatrix.copyFrom(boxTransformNode.getWorldMatrix());
         uBoxInvMatrix.invert();
         uPyramidFrustumInvMatrix.copyFrom(pyramidFrustumTransformNode.getWorldMatrix());
