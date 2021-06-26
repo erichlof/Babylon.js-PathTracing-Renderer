@@ -12,6 +12,7 @@ uniform mat4 uConeInvMatrix;
 uniform mat4 uParaboloidInvMatrix;
 uniform mat4 uHyperboloidInvMatrix;
 uniform mat4 uCapsuleInvMatrix;
+uniform mat4 uFlattenedRingInvMatrix;
 uniform mat4 uBoxInvMatrix;
 uniform mat4 uPyramidFrustumInvMatrix;
 uniform mat4 uDiskInvMatrix;
@@ -52,6 +53,8 @@ Quad quads[N_QUADS];
 #include<pathtracing_unit_hyperboloid_intersect> // required on scenes with unit hyperboloids that will be translated, rotated, and scaled by their matrix transform
 
 #include<pathtracing_unit_capsule_intersect> // required on scenes with unit capsules that will be translated, rotated, and scaled by their matrix transform
+
+#include<pathtracing_unit_flattened_ring_intersect> // required on scenes with unit flattened rings that will be translated, rotated, and scaled by their matrix transform
 
 #include<pathtracing_unit_box_intersect> // required on scenes with unit boxes that will be translated, rotated, and scaled by their matrix transform
 
@@ -166,7 +169,7 @@ void SceneIntersect( Ray r, out Intersection intersection )
 		intersection.t = d;
 		intersection.normal = normalize(n);
 		intersection.normal = normalize(transpose(mat3(uHyperboloidInvMatrix)) * intersection.normal);
-		intersection.color = vec3(0.2, 0.0, 1.0);
+		intersection.color = vec3(1.0, 0.1, 0.0);
 		intersection.type = uAllShapesMatType;
 		intersection.objectID = float(objectCount);
 	}
@@ -184,6 +187,23 @@ void SceneIntersect( Ray r, out Intersection intersection )
 		intersection.normal = normalize(n);
 		intersection.normal = normalize(transpose(mat3(uCapsuleInvMatrix)) * intersection.normal);
 		intersection.color = vec3(0.5, 1.0, 0.0);
+		intersection.type = uAllShapesMatType;
+		intersection.objectID = float(objectCount);
+	}
+	objectCount++;
+
+	// transform ray into flattened ring's object space
+	rObj.origin = vec3( uFlattenedRingInvMatrix * vec4(r.origin, 1.0) );
+	rObj.direction = vec3( uFlattenedRingInvMatrix * vec4(r.direction, 0.0) );
+
+	d = UnitFlattenedRingIntersect( rObj.origin, rObj.direction, uShapeK, n );
+
+	if (d < intersection.t)
+	{
+		intersection.t = d;
+		intersection.normal = normalize(n);
+		intersection.normal = normalize(transpose(mat3(uFlattenedRingInvMatrix)) * intersection.normal);
+		intersection.color = vec3(0.0, 0.4, 1.0);
 		intersection.type = uAllShapesMatType;
 		intersection.objectID = float(objectCount);
 	}
@@ -217,7 +237,7 @@ void SceneIntersect( Ray r, out Intersection intersection )
 		intersection.t = d;
 		intersection.normal = normalize(n);
 		intersection.normal = normalize(transpose(mat3(uPyramidFrustumInvMatrix)) * intersection.normal);
-		intersection.color = vec3(0.0, 0.3, 1.0);
+		intersection.color = vec3(0.2, 0.0, 1.0);
 		intersection.type = uAllShapesMatType;
 		intersection.objectID = float(objectCount);
 	}
