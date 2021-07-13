@@ -31,11 +31,25 @@
 
 	<canvas id="renderCanvas" touch-action="none"></canvas> <!-- touch-action="none" for best results from PEP -->
 
+	<div id="container"> </div>
+	<div id="info" style="position:fixed; top:5px; width:100%; text-align:center; font-family:monospace; font-size:medium; color:rgb(255,255,255);">
+		Babylon.js PathTracing Renderer - Cornell Box
+	</div>
+
+	<div id="cameraInfo" style="position:fixed; left:1%; bottom:2%; font-family:monospace; font-size:large; color:rgb(200,200,200);">
+	</div>
+
 	<!-- use this uncompressed version of the library while debugging -->
 	<!-- <script src="js/babylon.max.js"></script> -->
 
 	<!-- use this minified version of the library for deployment -->
-	<script src="js/babylon.js"></script> 
+	<script src="js/babylon.js"></script>
+
+	<!-- this file is for displaying the framerate(FPS) in the top-left corner of the webpage -->
+	<script src="js/stats.min.js"> </script>
+
+	<!-- this file is for including an interactive GUI menu system in the top-right corner of the webpage -->
+	<script src='js/dat.gui.min.js'></script>
 
 	<!-- this is the required file containing our GLSL path tracing library constants, variables, and utility functions, as well as the common GLSL fragment shaders-->
 	<script src="js/PathTracingCommon.js"> </script>
