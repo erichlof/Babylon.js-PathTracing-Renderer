@@ -1,39 +1,29 @@
 # Babylon.js-PathTracing-Renderer
 Real-time PathTracing with global illumination and progressive rendering, all on top of the Babylon.js WebGL framework. Click here for Live Demo: https://erichlof.github.io/Babylon.js-PathTracing-Renderer/Babylon_Path_Tracing.html
+
 <br>
+Transformed Quadric Geometry demo: https://erichlof.github.io/Babylon.js-PathTracing-Renderer/Transformed_Quadric_Geometry.html 
+<br>
+
 <h3> Note: by request of Babylon.js users, this is a W.I.P. conversion from using three.js as the host engine to using Babylon.js as the host engine behind my custom path tracing shaders.</h3> 
 
-<h4>Desktop Controls</h4>
-
-* Click anywhere to capture mouse
-* move Mouse to control camera rotation
-* Mousewheel to zoom in and out (change FOV)
-* WASD,QE controls camera flight forward and backward, strafe left and right, climb up and down
-* < > (comma, period) keys decrease and increase camera's aperture size
-* -- = (dash, equals) keys move camera's focus point forward and back out in the scene
-* 1-6 number keys select a different wall for the quad light to be attached to
-* open and close bracket keys decrease and increase the quad light's size
-* 7,8,9,0 number keys quickly switch the Right sphere's material
-<br><br>
-
-New Transformed Quadric Geometry demo: https://erichlof.github.io/Babylon.js-PathTracing-Renderer/Transformed_Quadric_Geometry.html 
 <br>
-The following controls are specific to the above Transformed_Quadric_Geometry demo:
-* Z,X keys decrease/increase shape K parameter - range: 0-1 (affects Cone, PyramidFrustum, and Hyperboloid)
-* R,T,Y keys select transform operation mode - R: Rotation, T: Translation, Y: Scaling
-* F,G keys decrease/increase X value of the selected operation
-* H,J keys decrease/increase Y value of the selected operation
-* K,L keys decrease/increase Z value of the selected operation
-* For example, pressing R would place the transform into Rotation mode, and F,G would rotate the object -/+ about the X axis
-* For example, pressing T would place the transform into Translation mode, and F,G would translate the position -/+ along the X axis
-* For example, pressing Y would place the transform into Scaling mode, and F,G would scale the object size -/+ along the X axis
-<br><br>
 
-To see how this all this got started and to follow future progress, take a look at this [Forum Discussion](https://forum.babylonjs.com/t/path-tracing-in-babylonjs/11475/2)
+<h2>TODO</h2>
 
+* Add my custom JavaScript BVH acceleration structure builder that takes arbritary triangular models in glTF format and quickly builds an efficient bounding box hierarchy and then saves a compact representation as a DataTexture to be stored on the GPU.  The GPU ray caster then efficiently traces through this data structure each animation frame while path tracing the scene.
+* Add support for PBR materials, especially when they are specified in the glTF files
+* Add mobile touch/pointer support so that users can enjoy real-time path tracing on any device with a browser
+
+<br>
+To see how this all this got started and to follow future progress, take a look at this Babylon Forum discussion: https://forum.babylonjs.com/t/path-tracing-in-babylonjs/11475/2
+
+<br>
 <br>
 
 <h2>Progress Updates</h2>
+
+* July 15th, 2021: Added camera and FPS stats with stats.js and a more intuitive GUI with the dat.gui.js system.  Instead of memorizing numerous hotkeys, the demos feature fully functioning menus and foldable controls in the upper right-hand corner of the webpage.  
 
 * May 21st, 2021: Updated and improved the de-noiser for Diffuse and clearCoat Diffuse surfaces.  Now scenes containing these surfaces (which is nearly all scenes) converges almost instantly!  I figured out how to cast the denoiser's neighbor pixel net a little wider.  The diffuse blur kernel was 3x3, or 9 taps in the screenOutput shader.  I kept that one for specular surfaces like transparent glass and the coating on top of clearCoat diffuse surfaces when the camera is active.  For the diffuse portions of the scene, (Diffuse, and Diffuse part of clearCoat Diffuse) I increased the sample radius of the blur kernel to 5x5, or 25 taps in the screenOutput shader.  Although this is quite a lot of taps, the GPU doesn't appear to mind too much because all pixels are doing this same task for their neighbors, so there should be no GPU diversion.  This new wider radius really makes a big difference and is definitely worth the extra texture taps!  If I really want to go nuts, I could increase the radius to 7x7, which would mean 49 taps per pixel, ha!  But I think the current radius is big enough for now and gives really smooth results.  What's neat also is that edges such as normal edges, object silhouette edges, and color boundary edges have remained razor sharp through this whole denoising process.  So we can have the best of both worlds: diffuse smoothness and detail sharpness where it counts!
 
