@@ -53,6 +53,9 @@ let sphereRadius = 16;
 let wallRadius = 50;
 let leftSphereTransformNode;
 let rightSphereTransformNode;
+let modelNameAndExtension = "";
+let containerMeshes = [];
+let pathTracedMesh;
 // scene/demo-specific uniforms
 let uQuadLightPlaneSelectionNumber;
 let uQuadLightRadius;
@@ -134,16 +137,57 @@ engine.setHardwareScalingLevel(2); // default scalingLevel is 1. You can try sca
 // Create the scene space
 pathTracingScene = new BABYLON.Scene(engine);
 
-// Append glTF model to scene.
-// BABYLON.SceneLoader.Append("models/", "StanfordBunny.glb", pathTracingScene, function (scene)
-// {
-        
-// });
 
-BABYLON.SceneLoader.ImportMesh("", "models/", "StanfordBunny.glb", pathTracingScene, function (meshes)
+// Load in the model either in glTF or glb format  /////////////////////////////////////////////////////
+
+modelNameAndExtension = "StanfordBunny.glb";
+//modelNameAndExtension = "UtahTeapot.glb";
+//modelNameAndExtension = "StanfordDragon.glb";
+//modelNameAndExtension = "Duck.gltf";
+//modelNameAndExtension = "DamagedHelmet.gltf";
+
+BABYLON.SceneLoader.LoadAssetContainer("models/", modelNameAndExtension, pathTracingScene, function (container)
 {
+        console.log("Model file name: " + modelNameAndExtension);
+	console.log("number of meshes found in original gltf/glb file: " + container.meshes.length);
+
+	for (let i = 0; i < container.meshes.length; i++)
+	{
+		if (container.meshes[i].geometry)
+		{
+                        containerMeshes.push(container.meshes[i]);
+		}
+	}
+
+        if (container.meshes.length > 1)
+        {
+                console.log("now merging these " + container.meshes.length + " meshes into 1 mesh...")
+                pathTracedMesh = BABYLON.Mesh.MergeMeshes(containerMeshes, true, true);
+        }
+        else // only 1 mesh was detected in original gltf/glb model file
+        {
+                pathTracedMesh = container.meshes[0];
+        }
         
+        pathTracedMesh.isVisible = false; // don't want WebGL to render this geometry in the normal way
+
+	console.log("Triangle Face count: " + (pathTracedMesh.getTotalIndices() / 3));
+
+        // not sure if the following is the correct way to check for indices inside the gltf/glb file?
+	if (pathTracedMesh.getTotalIndices() != pathTracedMesh.getTotalVertices())
+        {
+                console.log("Indices detected, now converting to UnIndexed mesh...")
+                pathTracedMesh.convertToUnIndexedMesh();
+        }
+	
+        console.log("total Vertex count: " + pathTracedMesh.getTotalVertices());
+        console.log("total Vertex x,y,z components in flat array: " + (pathTracedMesh.getTotalVertices() * 3));
+
+	console.log(pathTracedMesh.getVerticesData("position"));
 });
+
+
+
 
 // enable browser's mouse pointer lock feature, for free-look camera controlled by mouse movement
 pathTracingScene.onPointerDown = evt =>
