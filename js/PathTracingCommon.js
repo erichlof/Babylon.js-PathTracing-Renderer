@@ -1083,6 +1083,65 @@ float QuadIntersect( vec3 v0, vec3 v1, vec3 v2, vec3 v3, Ray r, bool isDoubleSid
 `;
 
 
+BABYLON.Effect.IncludesShadersStore['pathtracing_boundingbox_intersect'] = `
+
+float BoundingBoxIntersect( vec3 minCorner, vec3 maxCorner, vec3 rayOrigin, vec3 invDir )
+{
+	vec3 near = (minCorner - rayOrigin) * invDir;
+	vec3 far  = (maxCorner - rayOrigin) * invDir;
+
+	vec3 tmin = min(near, far);
+	vec3 tmax = max(near, far);
+
+	float t0 = max( max(tmin.x, tmin.y), tmin.z);
+	float t1 = min( min(tmax.x, tmax.y), tmax.z);
+
+	//return t1 >= max(t0, 0.0) ? t0 : INFINITY;
+	return max(t0, 0.0) > t1 ? INFINITY : t0;
+}
+
+`;
+
+
+BABYLON.Effect.IncludesShadersStore['pathtracing_bvhTriangle_intersect'] = `
+
+float BVH_TriangleIntersect( vec3 v0, vec3 v1, vec3 v2, Ray r, out float u, out float v )
+{
+	vec3 edge1 = v1 - v0;
+	vec3 edge2 = v2 - v0;
+	vec3 pvec = cross(r.direction, edge2);
+	float det = 1.0 / dot(edge1, pvec);
+	vec3 tvec = r.origin - v0;
+	u = dot(tvec, pvec) * det;
+	vec3 qvec = cross(tvec, edge1);
+	v = dot(r.direction, qvec) * det;
+	float t = dot(edge2, qvec) * det;
+	return (det < 0.0 || u < 0.0 || u > 1.0 || v < 0.0 || u + v > 1.0 || t <= 0.0) ? INFINITY : t;
+}
+
+`;
+
+
+BABYLON.Effect.IncludesShadersStore['pathtracing_bvhDoubleSidedTriangle_intersect'] = `
+
+float BVH_DoubleSidedTriangleIntersect( vec3 v0, vec3 v1, vec3 v2, Ray r, out float u, out float v )
+{
+	vec3 edge1 = v1 - v0;
+	vec3 edge2 = v2 - v0;
+	vec3 pvec = cross(r.direction, edge2);
+	float det = 1.0 / dot(edge1, pvec);
+	vec3 tvec = r.origin - v0;
+	u = dot(tvec, pvec) * det;
+	vec3 qvec = cross(tvec, edge1);
+	v = dot(r.direction, qvec) * det;
+	float t = dot(edge2, qvec) * det;
+	return (u < 0.0 || u > 1.0 || v < 0.0 || u + v > 1.0 || t <= 0.0) ? INFINITY : t;
+}
+
+`;
+
+
+
 BABYLON.Effect.IncludesShadersStore[ 'pathtracing_default_main' ] = `
 
 // Final Pixel Color, required out vec4 by WebGL 2.0
