@@ -6,11 +6,20 @@ precision highp int;
 precision highp sampler2D;
 
 // Demo-specific Uniforms
+uniform sampler2D tAABBTexture;
+uniform sampler2D tTriangleTexture;
 uniform mat4 uLeftSphereInvMatrix;
 uniform mat4 uRightSphereInvMatrix;
+uniform mat4 uGLTF_Model_InvMatrix;
 uniform float uQuadLightPlaneSelectionNumber;
 uniform float uQuadLightRadius;
 uniform int uRightSphereMatType;
+
+//#define INV_TEXTURE_WIDTH 0.000244140625 // (1 / 4096 texture width)
+//#define INV_TEXTURE_WIDTH 0.00048828125  // (1 / 2048 texture width)
+//#define INV_TEXTURE_WIDTH 0.0009765625   // (1 / 1024 texture width)
+
+#define INV_TEXTURE_WIDTH 0.00048828125  // (1 / 2048 texture width)
 
 // demo/scene-specific setup
 #define N_QUADS 6
@@ -19,7 +28,7 @@ uniform int uRightSphereMatType;
 struct Ray { vec3 origin; vec3 direction; };
 struct UnitSphere { vec3 color; int type; };
 struct Quad { vec3 normal; vec3 v0; vec3 v1; vec3 v2; vec3 v3; vec3 color; int type; };
-struct Intersection { float t; vec3 normal; vec3 color; int type; float objectID; };
+struct Intersection { float t; vec3 normal; vec3 color; vec2 uv; int type; float objectID; };
 
 Quad quads[N_QUADS];
 UnitSphere spheres[N_SPHERES];
@@ -40,14 +49,63 @@ UnitSphere spheres[N_SPHERES];
 
 #include<pathtracing_sample_axis_aligned_quad_light> // required on scenes with axis-aligned quad area lights (quad must reside in either XY, XZ, or YZ planes) 
 
+#include<pathtracing_boundingbox_intersect> // required on scenes containing a BVH for models in gltf/glb format
+
+#include<pathtracing_bvhTriangle_intersect> // required on scenes containing triangular models in gltf/glb format
+
+
+vec2 stackLevels[28];
+
+struct BoxNode
+{
+	vec4 data0; // corresponds to .x: idTriangle, .y: aabbMin.x, .z: aabbMin.y, .w: aabbMin.z
+	vec4 data1; // corresponds to .x: idRightChild .y: aabbMax.x, .z: aabbMax.y, .w: aabbMax.z
+};
+
+BoxNode GetBoxNode(const in float i)
+{
+	// each bounding box's data is encoded in 2 rgba(or xyzw) texture slots 
+	float iX2 = (i * 2.0);
+	// (iX2 + 0.0) corresponds to .x: idTriangle, .y: aabbMin.x, .z: aabbMin.y, .w: aabbMin.z 
+	// (iX2 + 1.0) corresponds to .x: idRightChild .y: aabbMax.x, .z: aabbMax.y, .w: aabbMax.z 
+
+	ivec2 uv0 = ivec2( mod(iX2 + 0.0, 2048.0), (iX2 + 0.0) * INV_TEXTURE_WIDTH ); // data0
+	ivec2 uv1 = ivec2( mod(iX2 + 1.0, 2048.0), (iX2 + 1.0) * INV_TEXTURE_WIDTH ); // data1
+	
+	return BoxNode( texelFetch(tAABBTexture, uv0, 0), texelFetch(tAABBTexture, uv1, 0) );
+}
+
 
 //-----------------------------------------------------------
 void SceneIntersect( Ray r, out Intersection intersection )
 //-----------------------------------------------------------
 {
+	BoxNode currentBoxNode, nodeA, nodeB, tmpNode;
+	vec4 aabbNodeData;
+	vec4 vd0, vd1, vd2, vd3, vd4, vd5, vd6, vd7;
+
+	vec3 aabbMin, aabbMax;
+	vec3 inverseDir = 1.0 / r.direction;
 	vec3 hit, n;
+
+	vec2 currentStackData, stackDataA, stackDataB, tmpStackData;
+	ivec2 uv0, uv1, uv2, uv3, uv4, uv5, uv6, uv7;
+
 	float d;
+	float stackptr = 0.0;	
+	float bc, bd;
+	float id = 0.0;
+	float tu, tv;
+	float triangleID = 0.0;
+	float triangleU = 0.0;
+	float triangleV = 0.0;
+	float triangleW = 0.0;
+
 	int objectCount = 0;
+	
+	bool skip = false;
+	bool triangleLookupNeeded = false;
+	
 	// initialize intersection fields
 	intersection.t = INFINITY;
 	intersection.type = -100;
@@ -88,8 +146,6 @@ void SceneIntersect( Ray r, out Intersection intersection )
 	}
 	objectCount++;
         
-
-
 	for (int i = 0; i < N_QUADS; i++)
         {
 		d = QuadIntersect( quads[i].v0, quads[i].v1, quads[i].v2, quads[i].v3, r, false );
@@ -105,6 +161,140 @@ void SceneIntersect( Ray r, out Intersection intersection )
 
 		objectCount++;
         }
+
+	// transform ray into GLTF_Model's object space
+	r.origin = vec3( uGLTF_Model_InvMatrix * vec4(r.origin, 1.0) );
+	r.direction = vec3( uGLTF_Model_InvMatrix * vec4(r.direction, 0.0) );
+	inverseDir = 1.0 / r.direction; // inverse direction must now be re-calculated
+
+	currentBoxNode = GetBoxNode(stackptr);
+	currentStackData = vec2(stackptr, BoundingBoxIntersect(currentBoxNode.data0.yzw, currentBoxNode.data1.yzw, r.origin, inverseDir));
+	stackLevels[0] = currentStackData;
+	skip = (currentStackData.y < intersection.t);
+
+	while (true)
+        {
+		if (!skip) 
+                {
+                        // decrease pointer by 1 (0.0 is root level, 27.0 is maximum depth)
+                        if (--stackptr < 0.0) // went past the root level, terminate loop
+                                break;
+
+                        currentStackData = stackLevels[int(stackptr)];
+			
+			if (currentStackData.y >= intersection.t)
+				continue;
+			
+			currentBoxNode = GetBoxNode(currentStackData.x);
+                }
+		skip = false; // reset skip
+		
+
+		if (currentBoxNode.data0.x < 0.0) // < 0.0 signifies an inner node
+		{
+			nodeA = GetBoxNode(currentStackData.x + 1.0);
+			nodeB = GetBoxNode(currentBoxNode.data1.x);
+			stackDataA = vec2(currentStackData.x + 1.0, BoundingBoxIntersect(nodeA.data0.yzw, nodeA.data1.yzw, r.origin, inverseDir));
+			stackDataB = vec2(currentBoxNode.data1.x, BoundingBoxIntersect(nodeB.data0.yzw, nodeB.data1.yzw, r.origin, inverseDir));
+			
+			// first sort the branch node data so that 'a' is the smallest
+			if (stackDataB.y < stackDataA.y)
+			{
+				tmpStackData = stackDataB;
+				stackDataB = stackDataA;
+				stackDataA = tmpStackData;
+
+				tmpNode = nodeB;
+				nodeB = nodeA;
+				nodeA = tmpNode;
+			} // branch 'b' now has the larger rayT value of 'a' and 'b'
+
+			if (stackDataB.y < intersection.t) // see if branch 'b' (the larger rayT) needs to be processed
+			{
+				currentStackData = stackDataB;
+				currentBoxNode = nodeB;
+				skip = true; // this will prevent the stackptr from decreasing by 1
+			}
+			if (stackDataA.y < intersection.t) // see if branch 'a' (the smaller rayT) needs to be processed 
+			{
+				if (skip) // if larger branch 'b' needed to be processed also,
+					stackLevels[int(stackptr++)] = stackDataB; // cue larger branch 'b' for future round
+							// also, increase pointer by 1
+				
+				currentStackData = stackDataA;
+				currentBoxNode = nodeA;
+				skip = true; // this will prevent the stackptr from decreasing by 1
+			}
+
+			continue;
+		} // end if (currentBoxNode.data0.x < 0.0) // inner node
+
+
+		// else this is a leaf
+
+		// each triangle's data is encoded in 8 rgba(or xyzw) texture slots
+		id = 8.0 * currentBoxNode.data0.x;
+
+		uv0 = ivec2( mod(id + 0.0, 2048.0), (id + 0.0) * INV_TEXTURE_WIDTH );
+		uv1 = ivec2( mod(id + 1.0, 2048.0), (id + 1.0) * INV_TEXTURE_WIDTH );
+		uv2 = ivec2( mod(id + 2.0, 2048.0), (id + 2.0) * INV_TEXTURE_WIDTH );
+		
+		vd0 = texelFetch(tTriangleTexture, uv0, 0);
+		vd1 = texelFetch(tTriangleTexture, uv1, 0);
+		vd2 = texelFetch(tTriangleTexture, uv2, 0);
+
+		d = BVH_TriangleIntersect( vec3(vd0.xyz), vec3(vd0.w, vd1.xy), vec3(vd1.zw, vd2.x), r, tu, tv );
+
+		if (d < intersection.t)
+		{
+			intersection.t = d;
+			triangleID = id;
+			triangleU = tu;
+			triangleV = tv;
+			triangleLookupNeeded = true;
+		}
+	      
+        } // end while (true)
+
+
+
+	if (triangleLookupNeeded)
+	{
+		uv0 = ivec2( mod(triangleID + 0.0, 2048.0), (triangleID + 0.0) * INV_TEXTURE_WIDTH );
+		uv1 = ivec2( mod(triangleID + 1.0, 2048.0), (triangleID + 1.0) * INV_TEXTURE_WIDTH );
+		uv2 = ivec2( mod(triangleID + 2.0, 2048.0), (triangleID + 2.0) * INV_TEXTURE_WIDTH );
+		uv3 = ivec2( mod(triangleID + 3.0, 2048.0), (triangleID + 3.0) * INV_TEXTURE_WIDTH );
+		uv4 = ivec2( mod(triangleID + 4.0, 2048.0), (triangleID + 4.0) * INV_TEXTURE_WIDTH );
+		uv5 = ivec2( mod(triangleID + 5.0, 2048.0), (triangleID + 5.0) * INV_TEXTURE_WIDTH );
+		uv6 = ivec2( mod(triangleID + 6.0, 2048.0), (triangleID + 6.0) * INV_TEXTURE_WIDTH );
+		uv7 = ivec2( mod(triangleID + 7.0, 2048.0), (triangleID + 7.0) * INV_TEXTURE_WIDTH );
+		
+		vd0 = texelFetch(tTriangleTexture, uv0, 0);
+		vd1 = texelFetch(tTriangleTexture, uv1, 0);
+		vd2 = texelFetch(tTriangleTexture, uv2, 0);
+		vd3 = texelFetch(tTriangleTexture, uv3, 0);
+		vd4 = texelFetch(tTriangleTexture, uv4, 0);
+		vd5 = texelFetch(tTriangleTexture, uv5, 0);
+		vd6 = texelFetch(tTriangleTexture, uv6, 0);
+		vd7 = texelFetch(tTriangleTexture, uv7, 0);
+
+		// face normal for flat-shaded polygon look
+		//intersec.normal = normalize( cross(vec3(vd0.w, vd1.xy) - vec3(vd0.xyz), vec3(vd1.zw, vd2.x) - vec3(vd0.xyz)) );
+		
+		// interpolated normal using triangle intersection's uv's
+		triangleW = 1.0 - triangleU - triangleV;
+		n = normalize(triangleW * vec3(vd2.yzw) + triangleU * vec3(vd3.xyz) + triangleV * vec3(vd3.w, vd4.xy));
+		// transform normal back into world space
+		intersection.normal = normalize(transpose(mat3(uGLTF_Model_InvMatrix)) * n);
+
+		intersection.color = vec3(1);//vd6.yzw;
+		intersection.uv = triangleW * vec2(vd4.zw) + triangleU * vec2(vd5.xy) + triangleV * vec2(vd5.zw);
+		//intersection.type = int(vd6.x);
+		//intersection.albedoTextureID = int(vd7.x);
+		intersection.type = spheres[1].type;
+		//intersection.albedoTextureID = -1;
+		intersection.objectID = float(objectCount);
+	} // if (triangleLookupNeeded)
 
 } // end void SceneIntersect( Ray r, out Intersection intersection )
 
