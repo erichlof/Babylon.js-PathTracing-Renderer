@@ -56,12 +56,25 @@ let rightSphereTransformNode;
 let modelNameAndExtension = "";
 let containerMeshes = [];
 let pathTracedMesh;
+let modelInitialScale = 1;
+let total_number_of_triangles = 0;
+let totalWork;
+// var triangleMaterialMarkers = [];
+// var pathTracingMaterialList = [];
+// var uniqueMaterialTextures = [];
+let triangle_array;
+let triangleDataTexture;
+let aabb_array;
+let aabbDataTexture;
+//let vpa,vna,vta; // made global for debugging in browser console
+
 // scene/demo-specific uniforms
 let uQuadLightPlaneSelectionNumber;
 let uQuadLightRadius;
 let uRightSphereMatType;
 let uLeftSphereInvMatrix = new BABYLON.Matrix();
 let uRightSphereInvMatrix = new BABYLON.Matrix();
+let uGLTF_Model_InvMatrix = new BABYLON.Matrix();
 
 
 const KEYCODE_NAMES = {
@@ -140,11 +153,11 @@ pathTracingScene = new BABYLON.Scene(engine);
 
 // Load in the model either in glTF or glb format  /////////////////////////////////////////////////////
 
-modelNameAndExtension = "StanfordBunny.glb";
-//modelNameAndExtension = "UtahTeapot.glb";
+modelNameAndExtension = "StanfordBunny.glb"; modelInitialScale = 0.05;
+//modelNameAndExtension = "UtahTeapot.glb"; modelInitialScale = 1;
 //modelNameAndExtension = "StanfordDragon.glb";
 //modelNameAndExtension = "Duck.gltf";
-//modelNameAndExtension = "DamagedHelmet.gltf";
+//modelNameAndExtension = "DamagedHelmet.gltf"; modelInitialScale = 10;
 
 BABYLON.SceneLoader.LoadAssetContainer("models/", modelNameAndExtension, pathTracingScene, function (container)
 {
@@ -171,6 +184,8 @@ BABYLON.SceneLoader.LoadAssetContainer("models/", modelNameAndExtension, pathTra
         
         pathTracedMesh.isVisible = false; // don't want WebGL to render this geometry in the normal way
 
+	pathTracedMesh.rotation.set(0, 0, 0);
+
 	console.log("Triangle Face count: " + (pathTracedMesh.getTotalIndices() / 3));
 
         // not sure if the following is the correct way to check for indices inside the gltf/glb file?
@@ -183,9 +198,210 @@ BABYLON.SceneLoader.LoadAssetContainer("models/", modelNameAndExtension, pathTra
         console.log("total Vertex count: " + pathTracedMesh.getTotalVertices());
         console.log("total Vertex x,y,z components in flat array: " + (pathTracedMesh.getTotalVertices() * 3));
 
-	console.log(pathTracedMesh.getVerticesData("position"));
+	//console.log(pathTracedMesh.getVerticesData("position"));
+
+        total_number_of_triangles = pathTracedMesh.getTotalVertices() / 3;
+
+        // now that the model is loaded and converted to our desired representation, we can start building an AABB around each triangle, 
+        //  and then send this list of AABBs to the BVH builder function.  Finally, 2 GPU data textures will be created which hold the 
+        //   compact BVH tree in one texture (for efficient GPU ray-BVH traversal), and all triangle vertex data (for quick GPU look-up) in the other texture.
+        Prepare_Model_For_PathTracing();
 });
 
+
+function Prepare_Model_For_PathTracing()
+{        
+        totalWork = new Uint32Array(total_number_of_triangles);
+
+        triangle_array = new Float32Array(2048 * 2048 * 4);
+        // 2048 = width of texture, 2048 = height of texture, 4 = r,g,b, and a components
+
+        aabb_array = new Float32Array(2048 * 2048 * 4);
+        // 2048 = width of texture, 2048 = height of texture, 4 = r,g,b, and a components
+
+        let vp0 = new BABYLON.Vector3();
+        let vp1 = new BABYLON.Vector3();
+        let vp2 = new BABYLON.Vector3();
+        let vn0 = new BABYLON.Vector3();
+        let vn1 = new BABYLON.Vector3();
+        let vn2 = new BABYLON.Vector3();
+        let vt0 = new BABYLON.Vector2();
+        let vt1 = new BABYLON.Vector2();
+        let vt2 = new BABYLON.Vector2();
+
+        let triangle_b_box_min = new BABYLON.Vector3();
+        let triangle_b_box_max = new BABYLON.Vector3();
+        let triangle_b_box_centroid = new BABYLON.Vector3();
+
+        let vpa = new Float32Array(pathTracedMesh.getVerticesData("position"));
+        let vna = new Float32Array(pathTracedMesh.getVerticesData("normal"));
+        let vta = null;
+        let modelHasUVs = false;
+	// is the following a valid way to check if the model has vertex UVs? 
+        if (pathTracedMesh.getVerticesDataKinds().length == 3)
+        {
+                vta = new Float32Array(pathTracedMesh.getVerticesData("uv"));
+                modelHasUVs = true;
+        }
+
+	for (let i = 0; i < total_number_of_triangles; i++)
+	{
+
+		triangle_b_box_min.set(Infinity, Infinity, Infinity);
+		triangle_b_box_max.set(-Infinity, -Infinity, -Infinity);
+
+		// for (let j = 0; j < pathTracingMaterialList.length; j++)
+		// {
+		// 	if (i < triangleMaterialMarkers[j])
+		// 	{
+		// 		materialNumber = j;
+		// 		break;
+		// 	}
+		// }
+
+		// record vertex texture coordinates (UVs)
+		if (modelHasUVs)
+		{
+			vt0.set(vta[6 * i + 0], vta[6 * i + 1]);
+			vt1.set(vta[6 * i + 2], vta[6 * i + 3]);
+			vt2.set(vta[6 * i + 4], vta[6 * i + 5]);
+		}
+		else
+		{
+			vt0.set(-1, -1);
+			vt1.set(-1, -1);
+			vt2.set(-1, -1);
+		}
+
+		// record vertex normals
+		vn0.set(vna[9 * i + 0], vna[9 * i + 1], -vna[9 * i + 2]); vn0.normalize();
+		vn1.set(vna[9 * i + 3], vna[9 * i + 4], -vna[9 * i + 5]); vn1.normalize();
+		vn2.set(vna[9 * i + 6], vna[9 * i + 7], -vna[9 * i + 8]); vn2.normalize();
+
+		// record vertex positions
+		vp0.set(vpa[9 * i + 0], vpa[9 * i + 1], -vpa[9 * i + 2]);
+		vp1.set(vpa[9 * i + 3], vpa[9 * i + 4], -vpa[9 * i + 5]);
+		vp2.set(vpa[9 * i + 6], vpa[9 * i + 7], -vpa[9 * i + 8]);
+
+		vp0.scaleInPlace(modelInitialScale);
+		vp1.scaleInPlace(modelInitialScale);
+		vp2.scaleInPlace(modelInitialScale);
+
+		// record triangle vertex data for triangleDataTexture
+
+		//slot 0
+		triangle_array[32 * i + 0] = vp0.x; // r or x
+		triangle_array[32 * i + 1] = vp0.y; // g or y 
+		triangle_array[32 * i + 2] = vp0.z; // b or z
+		triangle_array[32 * i + 3] = vp1.x; // a or w
+
+		//slot 1
+		triangle_array[32 * i + 4] = vp1.y; // r or x
+		triangle_array[32 * i + 5] = vp1.z; // g or y
+		triangle_array[32 * i + 6] = vp2.x; // b or z
+		triangle_array[32 * i + 7] = vp2.y; // a or w
+
+		//slot 2
+		triangle_array[32 * i + 8] = vp2.z; // r or x
+		triangle_array[32 * i + 9] = vn0.x; // g or y
+		triangle_array[32 * i + 10] = vn0.y; // b or z
+		triangle_array[32 * i + 11] = vn0.z; // a or w
+
+		//slot 3
+		triangle_array[32 * i + 12] = vn1.x; // r or x
+		triangle_array[32 * i + 13] = vn1.y; // g or y
+		triangle_array[32 * i + 14] = vn1.z; // b or z
+		triangle_array[32 * i + 15] = vn2.x; // a or w
+
+		//slot 4
+		triangle_array[32 * i + 16] = vn2.y; // r or x
+		triangle_array[32 * i + 17] = vn2.z; // g or y
+		triangle_array[32 * i + 18] = vt0.x; // b or z
+		triangle_array[32 * i + 19] = vt0.y; // a or w
+
+		//slot 5
+		triangle_array[32 * i + 20] = vt1.x; // r or x
+		triangle_array[32 * i + 21] = vt1.y; // g or y
+		triangle_array[32 * i + 22] = vt2.x; // b or z
+		triangle_array[32 * i + 23] = vt2.y; // a or w
+
+		// the remaining slots are used for PBR material properties
+
+		// //slot 6
+		// triangle_array[32 * i + 24] = pathTracingMaterialList[materialNumber].type; // r or x 
+		// triangle_array[32 * i + 25] = pathTracingMaterialList[materialNumber].color.r; // g or y
+		// triangle_array[32 * i + 26] = pathTracingMaterialList[materialNumber].color.g; // b or z
+		// triangle_array[32 * i + 27] = pathTracingMaterialList[materialNumber].color.b; // a or w
+
+		// //slot 7
+		// triangle_array[32 * i + 28] = pathTracingMaterialList[materialNumber].albedoTextureID; // r or x
+		// triangle_array[32 * i + 29] = 0; // g or y
+		// triangle_array[32 * i + 30] = 0; // b or z
+		// triangle_array[32 * i + 31] = 0; // a or w
+
+
+		// build an AABB around every triangle in the model
+		triangle_b_box_min.copyFrom(triangle_b_box_min.minimizeInPlace(vp0));
+		triangle_b_box_max.copyFrom(triangle_b_box_max.maximizeInPlace(vp0));
+		triangle_b_box_min.copyFrom(triangle_b_box_min.minimizeInPlace(vp1));
+		triangle_b_box_max.copyFrom(triangle_b_box_max.maximizeInPlace(vp1));
+		triangle_b_box_min.copyFrom(triangle_b_box_min.minimizeInPlace(vp2));
+		triangle_b_box_max.copyFrom(triangle_b_box_max.maximizeInPlace(vp2));
+
+		triangle_b_box_centroid.set((triangle_b_box_min.x + triangle_b_box_max.x) * 0.5,
+			(triangle_b_box_min.y + triangle_b_box_max.y) * 0.5,
+			(triangle_b_box_min.z + triangle_b_box_max.z) * 0.5);
+
+		// record every AABB's data for aabbDataTexture
+
+		aabb_array[9 * i + 0] = triangle_b_box_min.x;
+		aabb_array[9 * i + 1] = triangle_b_box_min.y;
+		aabb_array[9 * i + 2] = triangle_b_box_min.z;
+		aabb_array[9 * i + 3] = triangle_b_box_max.x;
+		aabb_array[9 * i + 4] = triangle_b_box_max.y;
+		aabb_array[9 * i + 5] = triangle_b_box_max.z;
+		aabb_array[9 * i + 6] = triangle_b_box_centroid.x;
+		aabb_array[9 * i + 7] = triangle_b_box_centroid.y;
+		aabb_array[9 * i + 8] = triangle_b_box_centroid.z;
+
+		// finally, record the integer index for this particular AABB.  This will keep the BVH_Builder fast and efficient,
+		//  because it only has to sort/manipulate integer index(id) look-up numbers instead of the whole triangle_b_box structure for each AABB
+		totalWork[i] = i;
+	} // end for (let i = 0; i < total_number_of_triangles; i++)
+
+
+	// Build the BVH acceleration structure, which places a bounding box ('root' of the tree) around all of the 
+	// triangles of the entire mesh, then subdivides each box into 2 smaller boxes.  It continues until it reaches 1 triangle,
+	// which it then designates as a 'leaf'
+	BVH_Build_Iterative(totalWork, aabb_array);
+
+	// once the aabb_array (BVH tree of boxes) is in a GPU-friendly format, create the aabbDataTexture which
+	// will get fed to the GPU as a texture uniform. The GPU's BVH ray-caster inside the pathtracing shader's 
+	// SceneIntersect() function will utilize the BVH tree data that is stored on the following data texture.  
+	aabbDataTexture = BABYLON.RawTexture.CreateRGBATexture(aabb_array,
+		2048,
+		2048,
+		pathTracingScene,
+		false,
+		false,
+		BABYLON.Constants.TEXTURE_NEAREST_SAMPLINGMODE,
+		BABYLON.Constants.TEXTURETYPE_FLOAT);
+
+	// Likewise, a triangleDataTexture is created to store all the model's vertex data for each triangle. This
+	// includes info like vertex positions, vertex normals, vertex UVs, material/texture IDs, etc.  If the GPU BVH 
+	// ray-caster successfully walks the BVH tree and intersects any triangle from the model and also determines 
+	// that this intersection has the closest ray t value, then the triangle's integer ID is used to quickly look up
+	// the matching entry on the following triangleDataTexture, in order to access its vertex properties inside the path tracer. 
+	triangleDataTexture = BABYLON.RawTexture.CreateRGBATexture(triangle_array,
+                2048, 
+                2048, 
+		pathTracingScene, 
+                false, 
+                false, 
+		BABYLON.Constants.TEXTURE_NEAREST_SAMPLINGMODE,
+		BABYLON.Constants.TEXTURETYPE_FLOAT);
+
+} // end function Prepare_Model_For_PathTracing()
 
 
 
@@ -289,6 +505,7 @@ rightSphereTransformNode.scaling.set(sphereRadius, sphereRadius, sphereRadius);
 uRightSphereInvMatrix.copyFrom(rightSphereTransformNode.getWorldMatrix());
 uRightSphereInvMatrix.invert();
 
+
 let width = engine.getRenderWidth(), height = engine.getRenderHeight();
 
 blueNoiseTexture = new BABYLON.Texture("./textures/BlueNoise_RGBA256.png",
@@ -348,8 +565,8 @@ const pathTracing_eWrapper = new BABYLON.EffectWrapper({
         engine: engine,
         fragmentShader: BABYLON.Effect.ShadersStore["pathTracingFragmentShader"],
         uniformNames: ["uResolution", "uRandomVec2", "uULen", "uVLen", "uTime", "uFrameCounter", "uSampleCounter", "uEPS_intersect", "uCameraMatrix", "uApertureSize", "uFocusDistance", "uCameraIsMoving",
-                "uLeftSphereInvMatrix", "uRightSphereInvMatrix", "uQuadLightPlaneSelectionNumber", "uQuadLightRadius", "uRightSphereMatType"],
-        samplerNames: ["previousBuffer", "blueNoiseTexture"],
+		"uLeftSphereInvMatrix", "uRightSphereInvMatrix", "uGLTF_Model_InvMatrix", "uQuadLightPlaneSelectionNumber", "uQuadLightRadius", "uRightSphereMatType"],
+	samplerNames: ["previousBuffer", "blueNoiseTexture", "tAABBTexture", "tTriangleTexture"],
         name: "pathTracingEffectWrapper"
 });
 
@@ -360,6 +577,8 @@ pathTracing_eWrapper.onApplyObservable.add(() =>
 
         pathTracing_eWrapper.effect.setTexture("previousBuffer", screenCopyRenderTarget);
         pathTracing_eWrapper.effect.setTexture("blueNoiseTexture", blueNoiseTexture);
+	pathTracing_eWrapper.effect.setTexture("tAABBTexture", aabbDataTexture);
+	pathTracing_eWrapper.effect.setTexture("tTriangleTexture", triangleDataTexture);
         pathTracing_eWrapper.effect.setFloat2("uResolution", pathTracingRenderTarget.getSize().width, pathTracingRenderTarget.getSize().height);
         pathTracing_eWrapper.effect.setFloat2("uRandomVec2", uRandomVec2.x, uRandomVec2.y);
         pathTracing_eWrapper.effect.setFloat("uULen", uULen);
@@ -377,6 +596,7 @@ pathTracing_eWrapper.onApplyObservable.add(() =>
         pathTracing_eWrapper.effect.setMatrix("uCameraMatrix", camera.getWorldMatrix());
         pathTracing_eWrapper.effect.setMatrix("uLeftSphereInvMatrix", uLeftSphereInvMatrix);
         pathTracing_eWrapper.effect.setMatrix("uRightSphereInvMatrix", uRightSphereInvMatrix);
+	pathTracing_eWrapper.effect.setMatrix("uGLTF_Model_InvMatrix", uGLTF_Model_InvMatrix);
 });
 
 
@@ -611,6 +831,13 @@ engine.runRenderLoop(function ()
         }
 
         uOneOverSampleCounter = 1.0 / uSampleCounter;
+
+	if (pathTracedMesh)
+	{
+		uGLTF_Model_InvMatrix.copyFrom(pathTracedMesh.getWorldMatrix());
+		uGLTF_Model_InvMatrix.invert();
+	}
+	
 
         // CAMERA INFO
         cameraInfoElement.innerHTML = "FOV( mousewheel ): " + (camera.fov * 180 / Math.PI).toFixed(0) + "<br>" + "Aperture( [ and ] ): " + uApertureSize.toFixed(1) +
