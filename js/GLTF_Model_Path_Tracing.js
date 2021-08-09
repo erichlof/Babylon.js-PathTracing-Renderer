@@ -153,11 +153,11 @@ pathTracingScene = new BABYLON.Scene(engine);
 
 // Load in the model either in glTF or glb format  /////////////////////////////////////////////////////
 
-modelNameAndExtension = "StanfordBunny.glb"; modelInitialScale = 0.05;
-//modelNameAndExtension = "UtahTeapot.glb"; modelInitialScale = 1;
-//modelNameAndExtension = "StanfordDragon.glb";
-//modelNameAndExtension = "Duck.gltf";
-//modelNameAndExtension = "DamagedHelmet.gltf"; modelInitialScale = 10;
+//modelNameAndExtension = "StanfordBunny.glb"; modelInitialScale = 0.05;
+modelNameAndExtension = "UtahTeapot.glb"; modelInitialScale = 150;
+//modelNameAndExtension = "StanfordDragon.glb"; modelInitialScale = 250;
+//modelNameAndExtension = "Duck.gltf"; modelInitialScale = 10;
+//modelNameAndExtension = "DamagedHelmet.gltf"; modelInitialScale = 15;
 
 BABYLON.SceneLoader.LoadAssetContainer("models/", modelNameAndExtension, pathTracingScene, function (container)
 {
