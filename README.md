@@ -5,13 +5,17 @@ Real-time PathTracing with global illumination and progressive rendering, all on
 Transformed Quadric Geometry demo: https://erichlof.github.io/Babylon.js-PathTracing-Renderer/Transformed_Quadric_Geometry.html 
 <br>
 
+<br>
+glTF Model Path Tracing demo: https://erichlof.github.io/Babylon.js-PathTracing-Renderer/GLTF_Model_Path_Tracing.html 
+<br>
+
 <h3> Note: by request of Babylon.js users, this is a W.I.P. conversion from using three.js as the host engine to using Babylon.js as the host engine behind my custom path tracing shaders.</h3> 
 
 <br>
 
 <h2>TODO</h2>
 
-* Add my custom JavaScript BVH acceleration structure builder that takes arbritary triangular models in glTF format and quickly builds an efficient bounding box hierarchy and then saves a compact representation as a DataTexture to be stored on the GPU.  The GPU ray caster then efficiently traces through this data structure each animation frame while path tracing the scene.
+* Plain geometry glb models are now working (see demo), but add support for glTF files that contain textures and material data
 * Add support for PBR materials, especially when they are specified in the glTF files
 * Add mobile touch/pointer support so that users can enjoy real-time path tracing on any device with a browser
 
@@ -22,6 +26,8 @@ To see how this all this got started and to follow future progress, take a look 
 <br>
 
 <h2>Progress Updates</h2>
+
+* August 10th, 2021: glTF Models are now loading and being path traced in real time - whoo hoo!  I successfully ported my glTF geometry preparation and BVH builder code from the three.js framework to the Babylon.js framework.  It took me a while to find the equivalents to some of the routines between the two libraries, but once I did, it was smooth sailing!  In fact, Babylon's system was so easy to use that I added a new model-picker to the GUI menu, allowing the end user to easily select a model to load from the drop-down list.  Then, behind the scenes, the Babylon PathTracing Renderer jumps into action, quickly loading the glTF/glb file, converting it to a BVH-builder-friendly representation, building an efficient BVH, storing that tree as a GPU data texture, then starts ray casting against that data inside the GPU path tracer - all in a matter of seconds! ;-)     
 
 * July 15th, 2021: Added camera and FPS stats with stats.js and a more intuitive GUI with the dat.gui.js system.  Instead of memorizing numerous hotkeys, the demos feature fully functioning menus and foldable controls in the upper right-hand corner of the webpage.  
 
