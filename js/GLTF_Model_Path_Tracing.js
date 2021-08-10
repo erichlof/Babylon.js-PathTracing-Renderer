@@ -1,6 +1,8 @@
 let canvas, engine, pathTracingScene;
 let container, stats;
 let gui;
+let gltfModel_SelectionController, gltfModel_SelectionObject;
+let needChangeGltfModelSelection = false;
 let quadLight_LocationController, quadLight_LocationObject;
 let needChangeQuadLightLocation = false;
 let quadLight_RadiusController, quadLight_RadiusObject;
@@ -53,6 +55,7 @@ let sphereRadius = 16;
 let wallRadius = 50;
 let leftSphereTransformNode;
 let rightSphereTransformNode;
+let gltfModelTransformNode;
 let modelNameAndExtension = "";
 let containerMeshes = [];
 let pathTracedMesh;
@@ -153,64 +156,69 @@ pathTracingScene = new BABYLON.Scene(engine);
 
 // Load in the model either in glTF or glb format  /////////////////////////////////////////////////////
 
-//modelNameAndExtension = "StanfordBunny.glb"; modelInitialScale = 0.05;
-modelNameAndExtension = "UtahTeapot.glb"; modelInitialScale = 150;
-//modelNameAndExtension = "StanfordDragon.glb"; modelInitialScale = 250;
-//modelNameAndExtension = "Duck.gltf"; modelInitialScale = 10;
-//modelNameAndExtension = "DamagedHelmet.gltf"; modelInitialScale = 15;
+modelNameAndExtension = "UtahTeapot.glb"; 
+modelInitialScale = 130;
 
-BABYLON.SceneLoader.LoadAssetContainer("models/", modelNameAndExtension, pathTracingScene, function (container)
+
+function loadModel()
 {
-        console.log("Model file name: " + modelNameAndExtension);
-	console.log("number of meshes found in original gltf/glb file: " + container.meshes.length);
-
-	for (let i = 0; i < container.meshes.length; i++)
-	{
-		if (container.meshes[i].geometry)
-		{
-                        containerMeshes.push(container.meshes[i]);
-		}
-	}
-
-        if (container.meshes.length > 1)
+        BABYLON.SceneLoader.LoadAssetContainer("models/", modelNameAndExtension, pathTracingScene, function (container)
         {
-                console.log("now merging these " + container.meshes.length + " meshes into 1 mesh...")
-                pathTracedMesh = BABYLON.Mesh.MergeMeshes(containerMeshes, true, true);
-        }
-        else // only 1 mesh was detected in original gltf/glb model file
-        {
-                pathTracedMesh = container.meshes[0];
-        }
-        
-        pathTracedMesh.isVisible = false; // don't want WebGL to render this geometry in the normal way
+                // clear out the mesh object and array
+                pathTracedMesh = null;
+                containerMeshes = [];
 
-	pathTracedMesh.rotation.set(0, 0, 0);
+                console.log("Model file name: " + modelNameAndExtension);
+                console.log("number of meshes found in original gltf/glb file: " + container.meshes.length);
 
-	console.log("Triangle Face count: " + (pathTracedMesh.getTotalIndices() / 3));
+                for (let i = 0; i < container.meshes.length; i++)
+                {
+                        if (container.meshes[i].geometry)
+                        {
+                                containerMeshes.push(container.meshes[i]);
+                        }
+                }
 
-        // not sure if the following is the correct way to check for indices inside the gltf/glb file?
-	if (pathTracedMesh.getTotalIndices() != pathTracedMesh.getTotalVertices())
-        {
-                console.log("Indices detected, now converting to UnIndexed mesh...")
-                pathTracedMesh.convertToUnIndexedMesh();
-        }
-	
-        console.log("total Vertex count: " + pathTracedMesh.getTotalVertices());
-        console.log("total Vertex x,y,z components in flat array: " + (pathTracedMesh.getTotalVertices() * 3));
+                if (container.meshes.length > 1)
+                {
+                        console.log("now merging these " + container.meshes.length + " meshes into 1 mesh...")
+                        pathTracedMesh = BABYLON.Mesh.MergeMeshes(containerMeshes, true, true);
+                }
+                else // only 1 mesh was detected in original gltf/glb model file
+                {
+                        pathTracedMesh = container.meshes[0];
+                }
 
-	//console.log(pathTracedMesh.getVerticesData("position"));
+                pathTracedMesh.isVisible = false; // don't want WebGL to render this geometry in the normal way
 
-        total_number_of_triangles = pathTracedMesh.getTotalVertices() / 3;
+                console.log("Triangle Face count: " + (pathTracedMesh.getTotalIndices() / 3));
 
-        // now that the model is loaded and converted to our desired representation, we can start building an AABB around each triangle, 
-        //  and then send this list of AABBs to the BVH builder function.  Finally, 2 GPU data textures will be created which hold the 
-        //   compact BVH tree in one texture (for efficient GPU ray-BVH traversal), and all triangle vertex data (for quick GPU look-up) in the other texture.
-        Prepare_Model_For_PathTracing();
-});
+                // not sure if the following is the correct way to check for indices inside the gltf/glb file?
+                if (pathTracedMesh.getTotalIndices() != pathTracedMesh.getTotalVertices())
+                {
+                        console.log("Indices detected, now converting to UnIndexed mesh...")
+                        pathTracedMesh.convertToUnIndexedMesh();
+                }
+
+                //console.log("total Vertex count: " + pathTracedMesh.getTotalVertices());
+                //console.log("total Vertex x,y,z components in flat array: " + (pathTracedMesh.getTotalVertices() * 3));
+
+                //console.log(pathTracedMesh.getVerticesData("position"));
+
+                total_number_of_triangles = pathTracedMesh.getTotalVertices() / 3;
+
+                // now that the model is loaded and converted to our desired representation, we can start building an AABB around each triangle, 
+                //  and then send this list of AABBs to the BVH builder function.  Finally, 2 GPU data textures will be created which hold the 
+                //   compact BVH tree in one texture (for efficient GPU ray-BVH traversal), and all triangle vertex data (for quick GPU look-up) in the other texture.
+                Prepare_Model_For_PathTracing();
+        });
+} // end function loadModel()
+
+
 
 
 function Prepare_Model_For_PathTracing()
-{        
+{
         totalWork = new Uint32Array(total_number_of_triangles);
 
         triangle_array = new Float32Array(2048 * 2048 * 4);
@@ -237,172 +245,177 @@ function Prepare_Model_For_PathTracing()
         let vna = new Float32Array(pathTracedMesh.getVerticesData("normal"));
         let vta = null;
         let modelHasUVs = false;
-	// is the following a valid way to check if the model has vertex UVs? 
+        // is the following a valid way to check if the model has vertex UVs? 
         if (pathTracedMesh.getVerticesDataKinds().length == 3)
         {
                 vta = new Float32Array(pathTracedMesh.getVerticesData("uv"));
                 modelHasUVs = true;
         }
 
-	for (let i = 0; i < total_number_of_triangles; i++)
-	{
+        for (let i = 0; i < total_number_of_triangles; i++)
+        {
 
-		triangle_b_box_min.set(Infinity, Infinity, Infinity);
-		triangle_b_box_max.set(-Infinity, -Infinity, -Infinity);
+                triangle_b_box_min.set(Infinity, Infinity, Infinity);
+                triangle_b_box_max.set(-Infinity, -Infinity, -Infinity);
 
-		// for (let j = 0; j < pathTracingMaterialList.length; j++)
-		// {
-		// 	if (i < triangleMaterialMarkers[j])
-		// 	{
-		// 		materialNumber = j;
-		// 		break;
-		// 	}
-		// }
+                // for (let j = 0; j < pathTracingMaterialList.length; j++)
+                // {
+                // 	if (i < triangleMaterialMarkers[j])
+                // 	{
+                // 		materialNumber = j;
+                // 		break;
+                // 	}
+                // }
 
-		// record vertex texture coordinates (UVs)
-		if (modelHasUVs)
-		{
-			vt0.set(vta[6 * i + 0], vta[6 * i + 1]);
-			vt1.set(vta[6 * i + 2], vta[6 * i + 3]);
-			vt2.set(vta[6 * i + 4], vta[6 * i + 5]);
-		}
-		else
-		{
-			vt0.set(-1, -1);
-			vt1.set(-1, -1);
-			vt2.set(-1, -1);
-		}
+                // record vertex texture coordinates (UVs)
+                if (modelHasUVs)
+                {
+                        vt0.set(vta[6 * i + 0], vta[6 * i + 1]);
+                        vt1.set(vta[6 * i + 2], vta[6 * i + 3]);
+                        vt2.set(vta[6 * i + 4], vta[6 * i + 5]);
+                }
+                else
+                {
+                        vt0.set(-1, -1);
+                        vt1.set(-1, -1);
+                        vt2.set(-1, -1);
+                }
 
-		// record vertex normals
-		vn0.set(vna[9 * i + 0], vna[9 * i + 1], -vna[9 * i + 2]); vn0.normalize();
-		vn1.set(vna[9 * i + 3], vna[9 * i + 4], -vna[9 * i + 5]); vn1.normalize();
-		vn2.set(vna[9 * i + 6], vna[9 * i + 7], -vna[9 * i + 8]); vn2.normalize();
+                // record vertex normals
+                vn0.set(vna[9 * i + 0], vna[9 * i + 1], -vna[9 * i + 2]); vn0.normalize();
+                vn1.set(vna[9 * i + 3], vna[9 * i + 4], -vna[9 * i + 5]); vn1.normalize();
+                vn2.set(vna[9 * i + 6], vna[9 * i + 7], -vna[9 * i + 8]); vn2.normalize();
 
-		// record vertex positions
-		vp0.set(vpa[9 * i + 0], vpa[9 * i + 1], -vpa[9 * i + 2]);
-		vp1.set(vpa[9 * i + 3], vpa[9 * i + 4], -vpa[9 * i + 5]);
-		vp2.set(vpa[9 * i + 6], vpa[9 * i + 7], -vpa[9 * i + 8]);
+                // record vertex positions
+                vp0.set(vpa[9 * i + 0], vpa[9 * i + 1], -vpa[9 * i + 2]);
+                vp1.set(vpa[9 * i + 3], vpa[9 * i + 4], -vpa[9 * i + 5]);
+                vp2.set(vpa[9 * i + 6], vpa[9 * i + 7], -vpa[9 * i + 8]);
 
-		vp0.scaleInPlace(modelInitialScale);
-		vp1.scaleInPlace(modelInitialScale);
-		vp2.scaleInPlace(modelInitialScale);
+                vp0.scaleInPlace(modelInitialScale);
+                vp1.scaleInPlace(modelInitialScale);
+                vp2.scaleInPlace(modelInitialScale);
 
-		// record triangle vertex data for triangleDataTexture
+                // record triangle vertex data for triangleDataTexture
 
-		//slot 0
-		triangle_array[32 * i + 0] = vp0.x; // r or x
-		triangle_array[32 * i + 1] = vp0.y; // g or y 
-		triangle_array[32 * i + 2] = vp0.z; // b or z
-		triangle_array[32 * i + 3] = vp1.x; // a or w
+                //slot 0
+                triangle_array[32 * i + 0] = vp0.x; // r or x
+                triangle_array[32 * i + 1] = vp0.y; // g or y 
+                triangle_array[32 * i + 2] = vp0.z; // b or z
+                triangle_array[32 * i + 3] = vp1.x; // a or w
 
-		//slot 1
-		triangle_array[32 * i + 4] = vp1.y; // r or x
-		triangle_array[32 * i + 5] = vp1.z; // g or y
-		triangle_array[32 * i + 6] = vp2.x; // b or z
-		triangle_array[32 * i + 7] = vp2.y; // a or w
+                //slot 1
+                triangle_array[32 * i + 4] = vp1.y; // r or x
+                triangle_array[32 * i + 5] = vp1.z; // g or y
+                triangle_array[32 * i + 6] = vp2.x; // b or z
+                triangle_array[32 * i + 7] = vp2.y; // a or w
 
-		//slot 2
-		triangle_array[32 * i + 8] = vp2.z; // r or x
-		triangle_array[32 * i + 9] = vn0.x; // g or y
-		triangle_array[32 * i + 10] = vn0.y; // b or z
-		triangle_array[32 * i + 11] = vn0.z; // a or w
+                //slot 2
+                triangle_array[32 * i + 8] = vp2.z; // r or x
+                triangle_array[32 * i + 9] = vn0.x; // g or y
+                triangle_array[32 * i + 10] = vn0.y; // b or z
+                triangle_array[32 * i + 11] = vn0.z; // a or w
 
-		//slot 3
-		triangle_array[32 * i + 12] = vn1.x; // r or x
-		triangle_array[32 * i + 13] = vn1.y; // g or y
-		triangle_array[32 * i + 14] = vn1.z; // b or z
-		triangle_array[32 * i + 15] = vn2.x; // a or w
+                //slot 3
+                triangle_array[32 * i + 12] = vn1.x; // r or x
+                triangle_array[32 * i + 13] = vn1.y; // g or y
+                triangle_array[32 * i + 14] = vn1.z; // b or z
+                triangle_array[32 * i + 15] = vn2.x; // a or w
 
-		//slot 4
-		triangle_array[32 * i + 16] = vn2.y; // r or x
-		triangle_array[32 * i + 17] = vn2.z; // g or y
-		triangle_array[32 * i + 18] = vt0.x; // b or z
-		triangle_array[32 * i + 19] = vt0.y; // a or w
+                //slot 4
+                triangle_array[32 * i + 16] = vn2.y; // r or x
+                triangle_array[32 * i + 17] = vn2.z; // g or y
+                triangle_array[32 * i + 18] = vt0.x; // b or z
+                triangle_array[32 * i + 19] = vt0.y; // a or w
 
-		//slot 5
-		triangle_array[32 * i + 20] = vt1.x; // r or x
-		triangle_array[32 * i + 21] = vt1.y; // g or y
-		triangle_array[32 * i + 22] = vt2.x; // b or z
-		triangle_array[32 * i + 23] = vt2.y; // a or w
+                //slot 5
+                triangle_array[32 * i + 20] = vt1.x; // r or x
+                triangle_array[32 * i + 21] = vt1.y; // g or y
+                triangle_array[32 * i + 22] = vt2.x; // b or z
+                triangle_array[32 * i + 23] = vt2.y; // a or w
 
-		// the remaining slots are used for PBR material properties
+                // the remaining slots are used for PBR material properties
 
-		// //slot 6
-		// triangle_array[32 * i + 24] = pathTracingMaterialList[materialNumber].type; // r or x 
-		// triangle_array[32 * i + 25] = pathTracingMaterialList[materialNumber].color.r; // g or y
-		// triangle_array[32 * i + 26] = pathTracingMaterialList[materialNumber].color.g; // b or z
-		// triangle_array[32 * i + 27] = pathTracingMaterialList[materialNumber].color.b; // a or w
+                // //slot 6
+                // triangle_array[32 * i + 24] = pathTracingMaterialList[materialNumber].type; // r or x 
+                // triangle_array[32 * i + 25] = pathTracingMaterialList[materialNumber].color.r; // g or y
+                // triangle_array[32 * i + 26] = pathTracingMaterialList[materialNumber].color.g; // b or z
+                // triangle_array[32 * i + 27] = pathTracingMaterialList[materialNumber].color.b; // a or w
 
-		// //slot 7
-		// triangle_array[32 * i + 28] = pathTracingMaterialList[materialNumber].albedoTextureID; // r or x
-		// triangle_array[32 * i + 29] = 0; // g or y
-		// triangle_array[32 * i + 30] = 0; // b or z
-		// triangle_array[32 * i + 31] = 0; // a or w
-
-
-		// build an AABB around every triangle in the model
-		triangle_b_box_min.copyFrom(triangle_b_box_min.minimizeInPlace(vp0));
-		triangle_b_box_max.copyFrom(triangle_b_box_max.maximizeInPlace(vp0));
-		triangle_b_box_min.copyFrom(triangle_b_box_min.minimizeInPlace(vp1));
-		triangle_b_box_max.copyFrom(triangle_b_box_max.maximizeInPlace(vp1));
-		triangle_b_box_min.copyFrom(triangle_b_box_min.minimizeInPlace(vp2));
-		triangle_b_box_max.copyFrom(triangle_b_box_max.maximizeInPlace(vp2));
-
-		triangle_b_box_centroid.set((triangle_b_box_min.x + triangle_b_box_max.x) * 0.5,
-			(triangle_b_box_min.y + triangle_b_box_max.y) * 0.5,
-			(triangle_b_box_min.z + triangle_b_box_max.z) * 0.5);
-
-		// record every AABB's data for aabbDataTexture
-
-		aabb_array[9 * i + 0] = triangle_b_box_min.x;
-		aabb_array[9 * i + 1] = triangle_b_box_min.y;
-		aabb_array[9 * i + 2] = triangle_b_box_min.z;
-		aabb_array[9 * i + 3] = triangle_b_box_max.x;
-		aabb_array[9 * i + 4] = triangle_b_box_max.y;
-		aabb_array[9 * i + 5] = triangle_b_box_max.z;
-		aabb_array[9 * i + 6] = triangle_b_box_centroid.x;
-		aabb_array[9 * i + 7] = triangle_b_box_centroid.y;
-		aabb_array[9 * i + 8] = triangle_b_box_centroid.z;
-
-		// finally, record the integer index for this particular AABB.  This will keep the BVH_Builder fast and efficient,
-		//  because it only has to sort/manipulate integer index(id) look-up numbers instead of the whole triangle_b_box structure for each AABB
-		totalWork[i] = i;
-	} // end for (let i = 0; i < total_number_of_triangles; i++)
+                // //slot 7
+                // triangle_array[32 * i + 28] = pathTracingMaterialList[materialNumber].albedoTextureID; // r or x
+                // triangle_array[32 * i + 29] = 0; // g or y
+                // triangle_array[32 * i + 30] = 0; // b or z
+                // triangle_array[32 * i + 31] = 0; // a or w
 
 
-	// Build the BVH acceleration structure, which places a bounding box ('root' of the tree) around all of the 
-	// triangles of the entire mesh, then subdivides each box into 2 smaller boxes.  It continues until it reaches 1 triangle,
-	// which it then designates as a 'leaf'
-	BVH_Build_Iterative(totalWork, aabb_array);
+                // build an AABB around every triangle in the model
+                triangle_b_box_min.copyFrom(triangle_b_box_min.minimizeInPlace(vp0));
+                triangle_b_box_max.copyFrom(triangle_b_box_max.maximizeInPlace(vp0));
+                triangle_b_box_min.copyFrom(triangle_b_box_min.minimizeInPlace(vp1));
+                triangle_b_box_max.copyFrom(triangle_b_box_max.maximizeInPlace(vp1));
+                triangle_b_box_min.copyFrom(triangle_b_box_min.minimizeInPlace(vp2));
+                triangle_b_box_max.copyFrom(triangle_b_box_max.maximizeInPlace(vp2));
 
-	// once the aabb_array (BVH tree of boxes) is in a GPU-friendly format, create the aabbDataTexture which
-	// will get fed to the GPU as a texture uniform. The GPU's BVH ray-caster inside the pathtracing shader's 
-	// SceneIntersect() function will utilize the BVH tree data that is stored on the following data texture.  
-	aabbDataTexture = BABYLON.RawTexture.CreateRGBATexture(aabb_array,
-		2048,
-		2048,
-		pathTracingScene,
-		false,
-		false,
-		BABYLON.Constants.TEXTURE_NEAREST_SAMPLINGMODE,
-		BABYLON.Constants.TEXTURETYPE_FLOAT);
+                triangle_b_box_centroid.set((triangle_b_box_min.x + triangle_b_box_max.x) * 0.5,
+                        (triangle_b_box_min.y + triangle_b_box_max.y) * 0.5,
+                        (triangle_b_box_min.z + triangle_b_box_max.z) * 0.5);
 
-	// Likewise, a triangleDataTexture is created to store all the model's vertex data for each triangle. This
-	// includes info like vertex positions, vertex normals, vertex UVs, material/texture IDs, etc.  If the GPU BVH 
-	// ray-caster successfully walks the BVH tree and intersects any triangle from the model and also determines 
-	// that this intersection has the closest ray t value, then the triangle's integer ID is used to quickly look up
-	// the matching entry on the following triangleDataTexture, in order to access its vertex properties inside the path tracer. 
-	triangleDataTexture = BABYLON.RawTexture.CreateRGBATexture(triangle_array,
-                2048, 
-                2048, 
-		pathTracingScene, 
-                false, 
-                false, 
-		BABYLON.Constants.TEXTURE_NEAREST_SAMPLINGMODE,
-		BABYLON.Constants.TEXTURETYPE_FLOAT);
+                // record every AABB's data for aabbDataTexture
+
+                aabb_array[9 * i + 0] = triangle_b_box_min.x;
+                aabb_array[9 * i + 1] = triangle_b_box_min.y;
+                aabb_array[9 * i + 2] = triangle_b_box_min.z;
+                aabb_array[9 * i + 3] = triangle_b_box_max.x;
+                aabb_array[9 * i + 4] = triangle_b_box_max.y;
+                aabb_array[9 * i + 5] = triangle_b_box_max.z;
+                aabb_array[9 * i + 6] = triangle_b_box_centroid.x;
+                aabb_array[9 * i + 7] = triangle_b_box_centroid.y;
+                aabb_array[9 * i + 8] = triangle_b_box_centroid.z;
+
+                // finally, record the integer index for this particular AABB.  This will keep the BVH_Builder fast and efficient,
+                //  because it only has to sort/manipulate integer index(id) look-up numbers instead of the whole triangle_b_box structure for each AABB
+                totalWork[i] = i;
+        } // end for (let i = 0; i < total_number_of_triangles; i++)
+
+
+        // Build the BVH acceleration structure, which places a bounding box ('root' of the tree) around all of the 
+        // triangles of the entire mesh, then subdivides each box into 2 smaller boxes.  It continues until it reaches 1 triangle,
+        // which it then designates as a 'leaf'
+        BVH_Build_Iterative(totalWork, aabb_array);
+
+        // once the aabb_array (BVH tree of boxes) is in a GPU-friendly format, create the aabbDataTexture which
+        // will get fed to the GPU as a texture uniform. The GPU's BVH ray-caster inside the pathtracing shader's 
+        // SceneIntersect() function will utilize the BVH tree data that is stored on the following data texture.  
+        aabbDataTexture = BABYLON.RawTexture.CreateRGBATexture(aabb_array,
+                2048,
+                2048,
+                pathTracingScene,
+                false,
+                false,
+                BABYLON.Constants.TEXTURE_NEAREST_SAMPLINGMODE,
+                BABYLON.Constants.TEXTURETYPE_FLOAT);
+
+        // Likewise, a triangleDataTexture is created to store all the model's vertex data for each triangle. This
+        // includes info like vertex positions, vertex normals, vertex UVs, material/texture IDs, etc.  If the GPU BVH 
+        // ray-caster successfully walks the BVH tree and intersects any triangle from the model and also determines 
+        // that this intersection has the closest ray t value, then the triangle's integer ID is used to quickly look up
+        // the matching entry on the following triangleDataTexture, in order to access its vertex properties inside the path tracer. 
+        triangleDataTexture = BABYLON.RawTexture.CreateRGBATexture(triangle_array,
+                2048,
+                2048,
+                pathTracingScene,
+                false,
+                false,
+                BABYLON.Constants.TEXTURE_NEAREST_SAMPLINGMODE,
+                BABYLON.Constants.TEXTURETYPE_FLOAT);
+
+        // once the model and its GPU data textures are ready, then set the scaling back to 1 to show the newly loaded model
+        gltfModelTransformNode.scaling.set(1, 1, 1);
 
 } // end function Prepare_Model_For_PathTracing()
 
+// kickstart the loading process
+loadModel();
 
 
 // enable browser's mouse pointer lock feature, for free-look camera controlled by mouse movement
@@ -426,6 +439,10 @@ container.appendChild(stats.domElement);
 // setup GUI
 function init_GUI()
 {
+        gltfModel_SelectionObject = {
+                Model_Selection: 'Utah Teapot'
+        };
+
         quadLight_LocationObject = {
                 QuadLight_Location: 'Ceiling'
         };
@@ -436,6 +453,11 @@ function init_GUI()
 
         rightSphere_MaterialObject = {
                 RSphere_MaterialPreset: 'Metal'
+        }
+
+        function handleGltfModelSelectionChange()
+        {
+                needChangeGltfModelSelection = true;
         }
 
         function handleQuadLightLocationChange()
@@ -454,6 +476,9 @@ function init_GUI()
         }
 
         gui = new dat.GUI();
+
+        gltfModel_SelectionController = gui.add(gltfModel_SelectionObject, 'Model_Selection', ['Utah Teapot',
+                'Stanford Bunny', 'Stanford Dragon']).onChange(handleGltfModelSelectionChange);
 
         quadLight_LocationController = gui.add(quadLight_LocationObject, 'QuadLight_Location', ['Ceiling',
                 'Right Wall', 'Left Wall', 'Floor', 'Front Wall', 'Back Wall']).onChange(handleQuadLightLocationChange);
@@ -489,9 +514,11 @@ uRightSphereMatType = 3; // enum number code for METAL material - demo starts of
 oldCameraMatrix = new BABYLON.Matrix();
 newCameraMatrix = new BABYLON.Matrix();
 
-// must be instantiated here after scene has been created
+// transform nodes can be instantiated only after scene has been created
 leftSphereTransformNode = new BABYLON.TransformNode();
 rightSphereTransformNode = new BABYLON.TransformNode();
+gltfModelTransformNode = new BABYLON.TransformNode();
+
 
 leftSphereTransformNode.position.set(-wallRadius * 0.45, -wallRadius + sphereRadius + 0.1, -wallRadius * 0.2);
 leftSphereTransformNode.scaling.set(sphereRadius, sphereRadius, sphereRadius);
@@ -504,6 +531,9 @@ rightSphereTransformNode.position.set(wallRadius * 0.45, -wallRadius + sphereRad
 rightSphereTransformNode.scaling.set(sphereRadius, sphereRadius, sphereRadius);
 uRightSphereInvMatrix.copyFrom(rightSphereTransformNode.getWorldMatrix());
 uRightSphereInvMatrix.invert();
+
+gltfModelTransformNode.rotation.set(0, Math.PI, 0);
+gltfModelTransformNode.scaling.set(0, 0, 0); // temporarily makes model invisible while it is being loaded and prepared
 
 
 let width = engine.getRenderWidth(), height = engine.getRenderHeight();
@@ -565,8 +595,8 @@ const pathTracing_eWrapper = new BABYLON.EffectWrapper({
         engine: engine,
         fragmentShader: BABYLON.Effect.ShadersStore["pathTracingFragmentShader"],
         uniformNames: ["uResolution", "uRandomVec2", "uULen", "uVLen", "uTime", "uFrameCounter", "uSampleCounter", "uEPS_intersect", "uCameraMatrix", "uApertureSize", "uFocusDistance", "uCameraIsMoving",
-		"uLeftSphereInvMatrix", "uRightSphereInvMatrix", "uGLTF_Model_InvMatrix", "uQuadLightPlaneSelectionNumber", "uQuadLightRadius", "uRightSphereMatType"],
-	samplerNames: ["previousBuffer", "blueNoiseTexture", "tAABBTexture", "tTriangleTexture"],
+                "uLeftSphereInvMatrix", "uRightSphereInvMatrix", "uGLTF_Model_InvMatrix", "uQuadLightPlaneSelectionNumber", "uQuadLightRadius", "uRightSphereMatType"],
+        samplerNames: ["previousBuffer", "blueNoiseTexture", "tAABBTexture", "tTriangleTexture"],
         name: "pathTracingEffectWrapper"
 });
 
@@ -577,8 +607,8 @@ pathTracing_eWrapper.onApplyObservable.add(() =>
 
         pathTracing_eWrapper.effect.setTexture("previousBuffer", screenCopyRenderTarget);
         pathTracing_eWrapper.effect.setTexture("blueNoiseTexture", blueNoiseTexture);
-	pathTracing_eWrapper.effect.setTexture("tAABBTexture", aabbDataTexture);
-	pathTracing_eWrapper.effect.setTexture("tTriangleTexture", triangleDataTexture);
+        pathTracing_eWrapper.effect.setTexture("tAABBTexture", aabbDataTexture);
+        pathTracing_eWrapper.effect.setTexture("tTriangleTexture", triangleDataTexture);
         pathTracing_eWrapper.effect.setFloat2("uResolution", pathTracingRenderTarget.getSize().width, pathTracingRenderTarget.getSize().height);
         pathTracing_eWrapper.effect.setFloat2("uRandomVec2", uRandomVec2.x, uRandomVec2.y);
         pathTracing_eWrapper.effect.setFloat("uULen", uULen);
@@ -596,7 +626,7 @@ pathTracing_eWrapper.onApplyObservable.add(() =>
         pathTracing_eWrapper.effect.setMatrix("uCameraMatrix", camera.getWorldMatrix());
         pathTracing_eWrapper.effect.setMatrix("uLeftSphereInvMatrix", uLeftSphereInvMatrix);
         pathTracing_eWrapper.effect.setMatrix("uRightSphereInvMatrix", uRightSphereInvMatrix);
-	pathTracing_eWrapper.effect.setMatrix("uGLTF_Model_InvMatrix", uGLTF_Model_InvMatrix);
+        pathTracing_eWrapper.effect.setMatrix("uGLTF_Model_InvMatrix", uGLTF_Model_InvMatrix);
 });
 
 
@@ -614,7 +644,53 @@ engine.runRenderLoop(function ()
         // first, reset cameraIsMoving flag
         uCameraIsMoving = false;
 
+
         // if GUI has been used, update
+        if (needChangeGltfModelSelection)
+        {
+                if (gltfModel_SelectionController.getValue() == 'Utah Teapot')
+                {
+                        modelNameAndExtension = "UtahTeapot.glb";
+                        modelInitialScale = 130;
+                        gltfModelTransformNode.rotation.set(0, Math.PI, 0);
+                        gltfModelTransformNode.position.set(0, 0, 0);
+                }
+                else if (gltfModel_SelectionController.getValue() == 'Stanford Bunny')
+                {
+                        modelNameAndExtension = "StanfordBunny.glb";
+                        modelInitialScale = 0.05;
+                        gltfModelTransformNode.rotation.set(0, 0, 0);
+                        gltfModelTransformNode.position.set(0, 0, 0);
+                }
+                else if (gltfModel_SelectionController.getValue() == 'Stanford Dragon')
+                {
+                        modelNameAndExtension = "StanfordDragon.glb";
+                        modelInitialScale = 250;
+                        gltfModelTransformNode.rotation.set(0, Math.PI, 0);
+                        gltfModelTransformNode.position.set(0, -10, 0);
+                }
+                else if (gltfModel_SelectionController.getValue() == 'Duck')
+                {
+                        modelNameAndExtension = "Duck.gltf"; 
+                        modelInitialScale = 10;
+                        gltfModelTransformNode.position.set(0, 0, 0);
+                }
+                else if (gltfModel_SelectionController.getValue() == 'Damaged Helmet')
+                {
+                        modelNameAndExtension = "DamagedHelmet.gltf"; 
+                        modelInitialScale = 15;
+                        gltfModelTransformNode.position.set(0, 0, 0);
+                }
+
+                // the following will make the old model invisible, while we wait for the new model to be loaded and prepared
+                gltfModelTransformNode.scaling.set(0, 0, 0);
+
+                loadModel(); // load the newly selected model
+
+                uCameraIsMoving = true;
+                needChangeGltfModelSelection = false;
+        }
+
         if (needChangeQuadLightLocation)
         {
                 if (quadLight_LocationController.getValue() == 'Right Wall')
@@ -830,17 +906,17 @@ engine.runRenderLoop(function ()
                 }
         }
 
+        
+        // update glTF model's transform
+        uGLTF_Model_InvMatrix.copyFrom(gltfModelTransformNode.getWorldMatrix());
+        uGLTF_Model_InvMatrix.invert();
+        
+
         uOneOverSampleCounter = 1.0 / uSampleCounter;
 
-	if (pathTracedMesh)
-	{
-		uGLTF_Model_InvMatrix.copyFrom(pathTracedMesh.getWorldMatrix());
-		uGLTF_Model_InvMatrix.invert();
-	}
-	
-
         // CAMERA INFO
-        cameraInfoElement.innerHTML = "FOV( mousewheel ): " + (camera.fov * 180 / Math.PI).toFixed(0) + "<br>" + "Aperture( [ and ] ): " + uApertureSize.toFixed(1) +
+        cameraInfoElement.innerHTML = "glTF_Model # of triangles: " + total_number_of_triangles.toFixed(0) + "<br>" + 
+                "FOV( mousewheel ): " + (camera.fov * 180 / Math.PI).toFixed(0) + "<br>" + "Aperture( [ and ] ): " + uApertureSize.toFixed(1) +
                 "<br>" + "FocusDistance( - and + ): " + uFocusDistance.toFixed(0) + "<br>" + "Samples: " + uSampleCounter;
 
         // the following is necessary to update the user's world camera movement - should take no time at all
@@ -854,7 +930,10 @@ engine.runRenderLoop(function ()
         eRenderer.render(screenOutput_eWrapper, null); // null, because we don't feed this non-linear image-processed output back into the pathTracing accumulation buffer as it would 'pollute' the pathtracing unbounded linear color space
 
         stats.update();
-});
+}); // end engine.runRenderLoop(function ()
+
+
+
 
 
 // Watch for browser/canvas resize events
