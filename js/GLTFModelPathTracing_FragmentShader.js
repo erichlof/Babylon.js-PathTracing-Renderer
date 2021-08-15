@@ -13,7 +13,7 @@ uniform mat4 uRightSphereInvMatrix;
 uniform mat4 uGLTF_Model_InvMatrix;
 uniform float uQuadLightPlaneSelectionNumber;
 uniform float uQuadLightRadius;
-uniform int uRightSphereMatType;
+uniform int uModelMaterialType;
 
 //#define INV_TEXTURE_WIDTH 0.000244140625 // (1 / 4096 texture width)
 //#define INV_TEXTURE_WIDTH 0.00048828125  // (1 / 2048 texture width)
@@ -52,6 +52,8 @@ UnitSphere spheres[N_SPHERES];
 #include<pathtracing_boundingbox_intersect> // required on scenes containing a BVH for models in gltf/glb format
 
 #include<pathtracing_bvhTriangle_intersect> // required on scenes containing triangular models in gltf/glb format
+
+#include<pathtracing_bvhDoubleSidedTriangle_intersect> // required on scenes containing triangular models in gltf/glb format, and that need transparency effects
 
 
 vec2 stackLevels[28];
@@ -243,7 +245,10 @@ void SceneIntersect( Ray r, out Intersection intersection )
 		vd1 = texelFetch(tTriangleTexture, uv1, 0);
 		vd2 = texelFetch(tTriangleTexture, uv2, 0);
 
-		d = BVH_TriangleIntersect( vec3(vd0.xyz), vec3(vd0.w, vd1.xy), vec3(vd1.zw, vd2.x), r, tu, tv );
+		if (uModelMaterialType == TRANSPARENT)
+			d = BVH_DoubleSidedTriangleIntersect( vec3(vd0.xyz), vec3(vd0.w, vd1.xy), vec3(vd1.zw, vd2.x), r, tu, tv );
+		else
+			d = BVH_TriangleIntersect( vec3(vd0.xyz), vec3(vd0.w, vd1.xy), vec3(vd1.zw, vd2.x), r, tu, tv );
 
 		if (d < intersection.t)
 		{
@@ -291,7 +296,7 @@ void SceneIntersect( Ray r, out Intersection intersection )
 		intersection.uv = triangleW * vec2(vd4.zw) + triangleU * vec2(vd5.xy) + triangleV * vec2(vd5.zw);
 		//intersection.type = int(vd6.x);
 		//intersection.albedoTextureID = int(vd7.x);
-		intersection.type = spheres[1].type;
+		intersection.type = uModelMaterialType;
 		//intersection.albedoTextureID = -1;
 		intersection.objectID = float(objectCount);
 	} // if (triangleLookupNeeded)
@@ -535,7 +540,7 @@ void SetupScene(void)
 	float lightRadius = uQuadLightRadius * 0.2;
 
 	spheres[0] = UnitSphere( vec3(1.0, 1.0, 0.0), CLEARCOAT_DIFFUSE ); // clearCoat diffuse Sphere Left
-	spheres[1] = UnitSphere( vec3(1.0, 1.0, 1.0), uRightSphereMatType ); // user-chosen material Sphere Right
+	spheres[1] = UnitSphere( vec3(1.0, 1.0, 1.0), METAL ); // metal Sphere Right
  
 	quads[0] = Quad( vec3( 0, 0, 1), vec3(-wallRadius, wallRadius, wallRadius), vec3( wallRadius, wallRadius, wallRadius), vec3( wallRadius,-wallRadius, wallRadius), vec3(-wallRadius,-wallRadius, wallRadius), vec3( 1.0,  1.0,  1.0), DIFFUSE);// Back Wall
 	quads[1] = Quad( vec3( 1, 0, 0), vec3(-wallRadius,-wallRadius, wallRadius), vec3(-wallRadius,-wallRadius,-wallRadius), vec3(-wallRadius, wallRadius,-wallRadius), vec3(-wallRadius, wallRadius, wallRadius), vec3( 0.7, 0.05, 0.05), DIFFUSE);// Left Wall Red
