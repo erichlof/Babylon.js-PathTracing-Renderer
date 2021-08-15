@@ -7,8 +7,36 @@ let quadLight_LocationController, quadLight_LocationObject;
 let needChangeQuadLightLocation = false;
 let quadLight_RadiusController, quadLight_RadiusObject;
 let needChangeQuadLightRadius = false;
-let rightSphere_MaterialController, rightSphere_MaterialObject;
-let needChangeRightSphereMaterial = false;
+let model_MaterialController, model_MaterialObject;
+let needChangeModelMaterial = false;
+let transform_Folder;
+let position_Folder;
+let scale_Folder;
+//let skew_Folder;
+let rotation_Folder;
+let transform_TranslateXController, transform_TranslateXObject;
+let transform_TranslateYController, transform_TranslateYObject;
+let transform_TranslateZController, transform_TranslateZObject;
+let transform_ScaleUniformController, transform_ScaleUniformObject;
+let transform_ScaleXController, transform_ScaleXObject;
+let transform_ScaleYController, transform_ScaleYObject;
+let transform_ScaleZController, transform_ScaleZObject;
+// let transform_SkewX_YController, transform_SkewX_YObject;
+// let transform_SkewX_ZController, transform_SkewX_ZObject;
+// let transform_SkewY_XController, transform_SkewY_XObject;
+// let transform_SkewY_ZController, transform_SkewY_ZObject;
+// let transform_SkewZ_XController, transform_SkewZ_XObject;
+// let transform_SkewZ_YController, transform_SkewZ_YObject;
+let transform_RotateXController, transform_RotateXObject;
+let transform_RotateYController, transform_RotateYObject;
+let transform_RotateZController, transform_RotateZObject;
+let parameter_KController, parameter_KObject;
+let needChangePosition = false;
+let needChangeScaleUniform = false;
+let needChangeScale = false;
+//let needChangeSkew = false;
+let needChangeRotation = false;
+
 let isPaused = true;
 let sceneIsDynamic = false;
 let camera, oldCameraMatrix, newCameraMatrix;
@@ -56,6 +84,7 @@ let wallRadius = 50;
 let leftSphereTransformNode;
 let rightSphereTransformNode;
 let gltfModelTransformNode;
+let modelUniformScale;
 let modelNameAndExtension = "";
 let containerMeshes = [];
 let pathTracedMesh;
@@ -74,7 +103,7 @@ let aabbDataTexture;
 // scene/demo-specific uniforms
 let uQuadLightPlaneSelectionNumber;
 let uQuadLightRadius;
-let uRightSphereMatType;
+let uModelMaterialType;
 let uLeftSphereInvMatrix = new BABYLON.Matrix();
 let uRightSphereInvMatrix = new BABYLON.Matrix();
 let uGLTF_Model_InvMatrix = new BABYLON.Matrix();
@@ -412,6 +441,11 @@ function Prepare_Model_For_PathTracing()
         // once the model and its GPU data textures are ready, then set the scaling back to 1 to show the newly loaded model
         gltfModelTransformNode.scaling.set(1, 1, 1);
 
+        transform_ScaleUniformController.setValue(1);
+        transform_ScaleXController.setValue(1);
+        transform_ScaleYController.setValue(1);
+        transform_ScaleZController.setValue(1);
+
 } // end function Prepare_Model_For_PathTracing()
 
 // kickstart the loading process
@@ -451,8 +485,57 @@ function init_GUI()
                 QuadLight_Radius: 50
         }
 
-        rightSphere_MaterialObject = {
-                RSphere_MaterialPreset: 'Metal'
+        model_MaterialObject = {
+                Model_MaterialPreset: 'Metal'
+        }
+
+        transform_TranslateXObject = {
+                translateX: 0
+        }
+        transform_TranslateYObject = {
+                translateY: 0
+        }
+        transform_TranslateZObject = {
+                translateZ: 0
+        }
+        transform_ScaleUniformObject = {
+                uniformScale: 1
+        }
+        transform_ScaleXObject = {
+                scaleX: 1
+        }
+        transform_ScaleYObject = {
+                scaleY: 1
+        }
+        transform_ScaleZObject = {
+                scaleZ: 1
+        }
+        // transform_SkewX_YObject = {
+        //         skewX_Y: 0
+        // }
+        // transform_SkewX_ZObject = {
+        //         skewX_Z: 0
+        // }
+        // transform_SkewY_XObject = {
+        //         skewY_X: 0
+        // }
+        // transform_SkewY_ZObject = {
+        //         skewY_Z: 0
+        // }
+        // transform_SkewZ_XObject = {
+        //         skewZ_X: 0
+        // }
+        // transform_SkewZ_YObject = {
+        //         skewZ_Y: 0
+        // }
+        transform_RotateXObject = {
+                rotateX: 0
+        }
+        transform_RotateYObject = {
+                rotateY: 0
+        }
+        transform_RotateZObject = {
+                rotateZ: 0
         }
 
         function handleGltfModelSelectionChange()
@@ -470,9 +553,30 @@ function init_GUI()
                 needChangeQuadLightRadius = true;
         }
 
-        function handleRightSphereMaterialChange()
+        function handleModelMaterialChange()
         {
-                needChangeRightSphereMaterial = true;
+                needChangeModelMaterial = true;
+        }
+
+        function handlePositionChange()
+        {
+                needChangePosition = true;
+        }
+        function handleScaleUniformChange()
+        {
+                needChangeScaleUniform = true;
+        }
+        function handleScaleChange()
+        {
+                needChangeScale = true;
+        }
+        // function handleSkewChange()
+        // {
+        //         needChangeSkew = true;
+        // }
+        function handleRotationChange()
+        {
+                needChangeRotation = true;
         }
 
         gui = new dat.GUI();
@@ -485,9 +589,35 @@ function init_GUI()
 
         quadLight_RadiusController = gui.add(quadLight_RadiusObject, 'QuadLight_Radius', 5, 150, 1.0).onChange(handleQuadLightRadiusChange);
 
-        rightSphere_MaterialController = gui.add(rightSphere_MaterialObject, 'RSphere_MaterialPreset', ['Transparent',
-                'Diffuse', 'ClearCoat_Diffuse', 'Metal']).onChange(handleRightSphereMaterialChange);
-}
+        model_MaterialController = gui.add(model_MaterialObject, 'Model_MaterialPreset', ['Transparent',
+                'Diffuse', 'ClearCoat_Diffuse', 'Metal']).onChange(handleModelMaterialChange);
+        
+        transform_Folder = gui.addFolder('Model_Transform');
+
+        position_Folder = transform_Folder.addFolder('Position');
+        transform_TranslateXController = position_Folder.add(transform_TranslateXObject, 'translateX', -50, 50, 1).onChange(handlePositionChange);
+        transform_TranslateYController = position_Folder.add(transform_TranslateYObject, 'translateY', -50, 50, 1).onChange(handlePositionChange);
+        transform_TranslateZController = position_Folder.add(transform_TranslateZObject, 'translateZ', -50, 50, 1).onChange(handlePositionChange);
+
+        scale_Folder = transform_Folder.addFolder('Scale');
+        transform_ScaleUniformController = scale_Folder.add(transform_ScaleUniformObject, 'uniformScale', 0.01, 4, 0.01).onChange(handleScaleUniformChange);
+        transform_ScaleXController = scale_Folder.add(transform_ScaleXObject, 'scaleX', 0.01, 4, 0.01).onChange(handleScaleChange);
+        transform_ScaleYController = scale_Folder.add(transform_ScaleYObject, 'scaleY', 0.01, 4, 0.01).onChange(handleScaleChange);
+        transform_ScaleZController = scale_Folder.add(transform_ScaleZObject, 'scaleZ', 0.01, 4, 0.01).onChange(handleScaleChange);
+
+        // skew_Folder = transform_Folder.addFolder('Skew');
+        // transform_SkewX_YController = skew_Folder.add(transform_SkewX_YObject, 'skewX_Y', -0.9, 0.9, 0.1).onChange(handleSkewChange);
+        // transform_SkewX_ZController = skew_Folder.add(transform_SkewX_ZObject, 'skewX_Z', -0.9, 0.9, 0.1).onChange(handleSkewChange);
+        // transform_SkewY_XController = skew_Folder.add(transform_SkewY_XObject, 'skewY_X', -0.9, 0.9, 0.1).onChange(handleSkewChange);
+        // transform_SkewY_ZController = skew_Folder.add(transform_SkewY_ZObject, 'skewY_Z', -0.9, 0.9, 0.1).onChange(handleSkewChange);
+        // transform_SkewZ_XController = skew_Folder.add(transform_SkewZ_XObject, 'skewZ_X', -0.9, 0.9, 0.1).onChange(handleSkewChange);
+        // transform_SkewZ_YController = skew_Folder.add(transform_SkewZ_YObject, 'skewZ_Y', -0.9, 0.9, 0.1).onChange(handleSkewChange);
+
+        rotation_Folder = transform_Folder.addFolder('Rotation');
+        transform_RotateXController = rotation_Folder.add(transform_RotateXObject, 'rotateX', 0, 359, 1).onChange(handleRotationChange);
+        transform_RotateYController = rotation_Folder.add(transform_RotateYObject, 'rotateY', 0, 359, 1).onChange(handleRotationChange);
+        transform_RotateZController = rotation_Folder.add(transform_RotateZObject, 'rotateZ', 0, 359, 1).onChange(handleRotationChange);
+} // end function init_GUI()
 
 init_GUI();
 
@@ -509,7 +639,7 @@ apertureChangeAmount = 1; // scene specific, depending on scene size dimensions
 focusDistChangeAmount = 1; // scene specific, depending on scene size dimensions
 uQuadLightPlaneSelectionNumber = 6;
 uQuadLightRadius = 50;
-uRightSphereMatType = 3; // enum number code for METAL material - demo starts off with this setting for right sphere
+uModelMaterialType = 3; // enum number code for METAL material - demo starts off with this setting for the glTF/glb model
 
 oldCameraMatrix = new BABYLON.Matrix();
 newCameraMatrix = new BABYLON.Matrix();
@@ -595,7 +725,7 @@ const pathTracing_eWrapper = new BABYLON.EffectWrapper({
         engine: engine,
         fragmentShader: BABYLON.Effect.ShadersStore["pathTracingFragmentShader"],
         uniformNames: ["uResolution", "uRandomVec2", "uULen", "uVLen", "uTime", "uFrameCounter", "uSampleCounter", "uEPS_intersect", "uCameraMatrix", "uApertureSize", "uFocusDistance", "uCameraIsMoving",
-                "uLeftSphereInvMatrix", "uRightSphereInvMatrix", "uGLTF_Model_InvMatrix", "uQuadLightPlaneSelectionNumber", "uQuadLightRadius", "uRightSphereMatType"],
+                "uLeftSphereInvMatrix", "uRightSphereInvMatrix", "uGLTF_Model_InvMatrix", "uQuadLightPlaneSelectionNumber", "uQuadLightRadius", "uModelMaterialType"],
         samplerNames: ["previousBuffer", "blueNoiseTexture", "tAABBTexture", "tTriangleTexture"],
         name: "pathTracingEffectWrapper"
 });
@@ -621,7 +751,7 @@ pathTracing_eWrapper.onApplyObservable.add(() =>
         pathTracing_eWrapper.effect.setFloat("uFocusDistance", uFocusDistance);
         pathTracing_eWrapper.effect.setFloat("uQuadLightPlaneSelectionNumber", uQuadLightPlaneSelectionNumber);
         pathTracing_eWrapper.effect.setFloat("uQuadLightRadius", uQuadLightRadius);
-        pathTracing_eWrapper.effect.setInt("uRightSphereMatType", uRightSphereMatType);
+        pathTracing_eWrapper.effect.setInt("uModelMaterialType", uModelMaterialType);
         pathTracing_eWrapper.effect.setBool("uCameraIsMoving", uCameraIsMoving);
         pathTracing_eWrapper.effect.setMatrix("uCameraMatrix", camera.getWorldMatrix());
         pathTracing_eWrapper.effect.setMatrix("uLeftSphereInvMatrix", uLeftSphereInvMatrix);
@@ -685,6 +815,17 @@ engine.runRenderLoop(function ()
                 // the following will make the old model invisible, while we wait for the new model to be loaded and prepared
                 gltfModelTransformNode.scaling.set(0, 0, 0);
 
+                transform_ScaleUniformController.setValue(0);
+                transform_ScaleXController.setValue(0);
+                transform_ScaleYController.setValue(0);
+                transform_ScaleZController.setValue(0);
+                transform_RotateXController.setValue(0);
+                transform_RotateYController.setValue(0);
+                transform_RotateZController.setValue(0);
+                transform_TranslateXController.setValue(0);
+                transform_TranslateYController.setValue(0);
+                transform_TranslateZController.setValue(0);
+
                 loadModel(); // load the newly selected model
 
                 uCameraIsMoving = true;
@@ -730,27 +871,93 @@ engine.runRenderLoop(function ()
                 needChangeQuadLightRadius = false;
         }
 
-        if (needChangeRightSphereMaterial)
+        if (needChangeModelMaterial)
         {
-                if (rightSphere_MaterialController.getValue() == 'Transparent')
+                if (model_MaterialController.getValue() == 'Transparent')
                 {
-                        uRightSphereMatType = 2;// enum number code for TRANSPARENT material
+                        uModelMaterialType = 2;// enum number code for TRANSPARENT material
                 }
-                else if (rightSphere_MaterialController.getValue() == 'Diffuse')
+                else if (model_MaterialController.getValue() == 'Diffuse')
                 {
-                        uRightSphereMatType = 1;// enum number code for DIFFUSE material
+                        uModelMaterialType = 1;// enum number code for DIFFUSE material
                 }
-                else if (rightSphere_MaterialController.getValue() == 'ClearCoat_Diffuse')
+                else if (model_MaterialController.getValue() == 'ClearCoat_Diffuse')
                 {
-                        uRightSphereMatType = 4;// enum number code for CLEARCOAT_DIFFUSE material
+                        uModelMaterialType = 4;// enum number code for CLEARCOAT_DIFFUSE material
                 }
-                else if (rightSphere_MaterialController.getValue() == 'Metal')
+                else if (model_MaterialController.getValue() == 'Metal')
                 {
-                        uRightSphereMatType = 3;// enum number code for METAL material
+                        uModelMaterialType = 3;// enum number code for METAL material
                 }
 
                 uCameraIsMoving = true;
-                needChangeRightSphereMaterial = false;
+                needChangeModelMaterial = false;
+        }
+
+        if (needChangePosition)
+        {
+                // first, reset model's position
+                if (modelNameAndExtension == "StanfordDragon.glb")
+                        gltfModelTransformNode.position.set(0, -10, 0);
+                else
+                        gltfModelTransformNode.position.set(0, 0, 0);
+                
+                // now apply requested translation offsets
+                gltfModelTransformNode.position.addInPlaceFromFloats(transform_TranslateXController.getValue(), 
+                                                                     transform_TranslateYController.getValue(),
+                                                                     transform_TranslateZController.getValue());
+                
+                uCameraIsMoving = true;
+                needChangePosition = false;
+        }
+
+
+        if (needChangeScaleUniform)
+        {
+                modelUniformScale = transform_ScaleUniformController.getValue();
+
+                transform_ScaleXController.setValue(modelUniformScale);
+                transform_ScaleYController.setValue(modelUniformScale);
+                transform_ScaleZController.setValue(modelUniformScale);
+
+                gltfModelTransformNode.scaling.set(modelUniformScale, modelUniformScale, modelUniformScale);
+                
+                uCameraIsMoving = true;
+                needChangeScaleUniform = false;
+        }
+
+
+        if (needChangeScale)
+        {
+                gltfModelTransformNode.scaling.set(transform_ScaleXController.getValue(), 
+                                                   transform_ScaleYController.getValue(), 
+                                                   transform_ScaleZController.getValue());
+
+                uCameraIsMoving = true;
+                needChangeScale = false;
+        }
+
+        // if (needChangeSkew)
+        // {
+        //         SkewMatrix.set(
+        //                 1, transform_SkewX_YController.getValue(), transform_SkewX_ZController.getValue(), 0,
+        //                 transform_SkewY_XController.getValue(), 1, transform_SkewY_ZController.getValue(), 0,
+        //                 transform_SkewZ_XController.getValue(), transform_SkewZ_YController.getValue(), 1, 0,
+        //                 0, 0, 0, 1
+        //         );
+
+        //         uCameraIsMoving = true;
+        //         needChangeSkew = false;
+        // }
+
+        if (needChangeRotation)
+        {
+                gltfModelTransformNode.rotation.set(transform_RotateXController.getValue() * (Math.PI / 180),
+                                                    transform_RotateYController.getValue() * (Math.PI / 180),
+                                                    transform_RotateZController.getValue() * (Math.PI / 180));
+                
+                uCameraIsMoving = true;
+                needChangeRotation = false;
         }
 
 
