@@ -8,12 +8,22 @@ precision highp sampler2D;
 // Demo-specific Uniforms
 uniform sampler2D tAABBTexture;
 uniform sampler2D tTriangleTexture;
+uniform sampler2D tAlbedoTexture;
+uniform sampler2D tBumpTexture;
+uniform sampler2D tMetallicTexture;
+uniform sampler2D tEmissiveTexture;
+
 uniform mat4 uLeftSphereInvMatrix;
 uniform mat4 uRightSphereInvMatrix;
 uniform mat4 uGLTF_Model_InvMatrix;
 uniform float uQuadLightPlaneSelectionNumber;
 uniform float uQuadLightRadius;
 uniform int uModelMaterialType;
+uniform bool uModelUsesAlbedoTexture;
+uniform bool uModelUsesBumpTexture;
+uniform bool uModelUsesMetallicTexture;
+uniform bool uModelUsesEmissiveTexture;
+
 
 //#define INV_TEXTURE_WIDTH 0.000244140625 // (1 / 4096 texture width)
 //#define INV_TEXTURE_WIDTH 0.00048828125  // (1 / 2048 texture width)
@@ -54,6 +64,30 @@ UnitSphere spheres[N_SPHERES];
 #include<pathtracing_bvhTriangle_intersect> // required on scenes containing triangular models in gltf/glb format
 
 #include<pathtracing_bvhDoubleSidedTriangle_intersect> // required on scenes containing triangular models in gltf/glb format, and that need transparency effects
+
+
+
+vec3 perturbNormal(vec3 nl, vec2 normalScale, vec2 uv)
+{
+        vec3 S = normalize( cross( abs(nl.y) < 0.9 ? vec3(0, 1, 0) : vec3(0, 0, 1), nl ) );
+        vec3 T = cross(nl, S);
+        vec3 N = normalize( nl );
+	// invert S, T when the UV direction is backwards (from mirrored faces),
+	// otherwise it will do the normal mapping backwards.
+	vec3 NfromST = cross( S, T );
+	if( dot( NfromST, N ) < 0.0 )
+	{
+		S *= -1.0;
+		T *= -1.0;
+	}
+        mat3 tsn = mat3( S, T, N );
+
+	vec3 mapN = texture(tBumpTexture, uv).xyz * 2.0 - 1.0;
+	mapN = normalize(mapN);
+        mapN.xy *= normalScale;
+        
+        return normalize( tsn * mapN );
+}
 
 
 vec2 stackLevels[28];
@@ -245,7 +279,7 @@ void SceneIntersect( Ray r, out Intersection intersection )
 		vd1 = texelFetch(tTriangleTexture, uv1, 0);
 		vd2 = texelFetch(tTriangleTexture, uv2, 0);
 
-		if (uModelMaterialType == TRANSPARENT)
+		if (!uModelUsesAlbedoTexture && uModelMaterialType == TRANSPARENT)
 			d = BVH_DoubleSidedTriangleIntersect( vec3(vd0.xyz), vec3(vd0.w, vd1.xy), vec3(vd1.zw, vd2.x), r, tu, tv );
 		else
 			d = BVH_TriangleIntersect( vec3(vd0.xyz), vec3(vd0.w, vd1.xy), vec3(vd1.zw, vd2.x), r, tu, tv );
@@ -274,30 +308,36 @@ void SceneIntersect( Ray r, out Intersection intersection )
 		uv6 = ivec2( mod(triangleID + 6.0, 2048.0), (triangleID + 6.0) * INV_TEXTURE_WIDTH );
 		uv7 = ivec2( mod(triangleID + 7.0, 2048.0), (triangleID + 7.0) * INV_TEXTURE_WIDTH );
 		
-		vd0 = texelFetch(tTriangleTexture, uv0, 0);
-		vd1 = texelFetch(tTriangleTexture, uv1, 0);
-		vd2 = texelFetch(tTriangleTexture, uv2, 0);
-		vd3 = texelFetch(tTriangleTexture, uv3, 0);
-		vd4 = texelFetch(tTriangleTexture, uv4, 0);
-		vd5 = texelFetch(tTriangleTexture, uv5, 0);
-		vd6 = texelFetch(tTriangleTexture, uv6, 0);
-		vd7 = texelFetch(tTriangleTexture, uv7, 0);
+		// the complete vertex data for each individual triangle consumes 8 rgba texture slots on the GPU data texture
+		// also, packing/padding the vertex data into 8 texels ensures 8-boundary alignments (power of 2) which is more memory-access friendly 
+		vd0 = texelFetch(tTriangleTexture, uv0, 0); // rgb: vertex0 position xyz, a: vertex1 position x 
+		vd1 = texelFetch(tTriangleTexture, uv1, 0); // rg: vertex1(cont.) position yz, ba: vertex2 position xy
+		vd2 = texelFetch(tTriangleTexture, uv2, 0); // r: vertex2(cont.) position z, gba: vertex0 normal xyz
+		vd3 = texelFetch(tTriangleTexture, uv3, 0); // rgb: vertex1 normal xyz, a: vertex2 normal x
+		vd4 = texelFetch(tTriangleTexture, uv4, 0); // rg: vertex2(cont.) normal yz, ba: vertex0 uv
+		vd5 = texelFetch(tTriangleTexture, uv5, 0); // rg: vertex1 uv, ba: vertex2 uv
+		vd6 = texelFetch(tTriangleTexture, uv6, 0); // rgb: triangle material rgb color, a: triangle material type id (enum)
+		vd7 = texelFetch(tTriangleTexture, uv7, 0); // rgba: (reserved for future PBR material extra properties)
 
 		// face normal for flat-shaded polygon look
-		//intersec.normal = normalize( cross(vec3(vd0.w, vd1.xy) - vec3(vd0.xyz), vec3(vd1.zw, vd2.x) - vec3(vd0.xyz)) );
+		//intersection.normal = normalize( cross(vec3(vd0.w, vd1.xy) - vec3(vd0.xyz), vec3(vd1.zw, vd2.x) - vec3(vd0.xyz)) );
 		
 		// interpolated normal using triangle intersection's uv's
 		triangleW = 1.0 - triangleU - triangleV;
 		n = normalize(triangleW * vec3(vd2.yzw) + triangleU * vec3(vd3.xyz) + triangleV * vec3(vd3.w, vd4.xy));
+		intersection.uv = triangleW * vec2(vd4.zw) + triangleU * vec2(vd5.xy) + triangleV * vec2(vd5.zw);
+		n = uModelUsesBumpTexture ? perturbNormal(n, vec2(1.0, 1.0), intersection.uv) : n;
 		// transform normal back into world space
 		intersection.normal = normalize(transpose(mat3(uGLTF_Model_InvMatrix)) * n);
 
-		intersection.color = vec3(1);//vd6.yzw;
-		intersection.uv = triangleW * vec2(vd4.zw) + triangleU * vec2(vd5.xy) + triangleV * vec2(vd5.zw);
 		//intersection.type = int(vd6.x);
+		intersection.type = uModelUsesAlbedoTexture ? PBR_MATERIAL : uModelMaterialType;
+
+		intersection.color = vec3(1);//vd6.yzw;
+
 		//intersection.albedoTextureID = int(vd7.x);
-		intersection.type = uModelMaterialType;
 		//intersection.albedoTextureID = -1;
+		
 		intersection.objectID = float(objectCount);
 	} // if (triangleLookupNeeded)
 
@@ -319,12 +359,15 @@ vec3 CalculateRadiance( Ray r, out vec3 objectNormal, out vec3 objectColor, out 
 	vec3 tdir;
 	vec3 x, n, nl;
 	vec3 absorptionCoefficient;
+	vec3 metallicRoughness = vec3(0);
+	vec3 emission = vec3(0);
 
 	float nc, nt, ratioIoR, Re, Tr;
 	float P, RP, TP;
 	float weight;
 	float thickness = 0.05;
 	float scatteringDistance;
+	float maxEmission = 0.0;
 
 	int diffuseCount = 0;
 	int previousIntersecType = -100;
@@ -382,6 +425,35 @@ vec3 CalculateRadiance( Ray r, out vec3 objectNormal, out vec3 objectColor, out 
 			break;
 
 
+		if (intersection.type == PBR_MATERIAL)
+		{
+			intersection.color = texture(tAlbedoTexture, intersection.uv).rgb;
+			intersection.color = pow(intersection.color, vec3(2.2));
+			
+			emission = uModelUsesEmissiveTexture ? texture(tEmissiveTexture, intersection.uv).rgb : vec3(0);
+			emission = pow(emission, vec3(2.2));
+			maxEmission = max(emission.r, max(emission.g, emission.b));
+			if (bounceIsSpecular && maxEmission > 0.01)
+			{
+				pixelSharpness = 1.01;
+				accumCol = mask * emission;
+				break;
+			}
+
+			intersection.type = DIFFUSE;
+			
+			metallicRoughness = uModelUsesMetallicTexture ? texture(tMetallicTexture, intersection.uv).rgb : vec3(0);
+			metallicRoughness = pow(metallicRoughness, vec3(2.2));
+			if (metallicRoughness.g > 0.01) // roughness
+			{
+				intersection.type = CLEARCOAT_DIFFUSE;
+			}	
+			if (metallicRoughness.b > 0.01) // metalness
+			{
+				intersection.type = METAL;
+			}
+				
+		}
 
                 if (intersection.type == DIFFUSE) // Ideal diffuse reflection
 		{
@@ -414,7 +486,8 @@ vec3 CalculateRadiance( Ray r, out vec3 objectNormal, out vec3 objectColor, out 
 		{
 			mask *= intersection.color;
 
-			r = Ray( x, reflect(r.direction, nl) );
+			//r = Ray( x, reflect(r.direction, nl) );
+			r = Ray( x, randomDirectionInSpecularLobe(reflect(r.direction, nl), metallicRoughness.g) );
 			r.origin += nl * uEPS_intersect;
 
 			continue;
