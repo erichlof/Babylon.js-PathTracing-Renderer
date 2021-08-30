@@ -9,12 +9,17 @@ Transformed Quadric Geometry demo: https://erichlof.github.io/Babylon.js-PathTra
 glTF Model Path Tracing demo: https://erichlof.github.io/Babylon.js-PathTracing-Renderer/GLTF_Model_Path_Tracing.html 
 <br>
 
+<br>
+Physical Sky Model demo: https://erichlof.github.io/Babylon.js-PathTracing-Renderer/Physical_Sky_Model.html 
+<br>
+
 <h3> Note: by request of Babylon.js users, this is a W.I.P. conversion from using three.js as the host engine to using Babylon.js as the host engine behind my custom path tracing shaders.</h3> 
 
 <br>
 
 <h2>TODO</h2>
 
+* Add support for HDRI images to be used as realistic environmental lighting
 * Add more robust support for arbitrary PBR materials, especially when they are specified in the glTF files
 * Add mobile touch/pointer support so that users can enjoy real-time path tracing on any device with a browser
 
