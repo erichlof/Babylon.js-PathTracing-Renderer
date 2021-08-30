@@ -170,6 +170,11 @@ vec3 CalculateRadiance( Ray r, out vec3 objectNormal, out vec3 objectColor, out 
 				accumCol = mask * skyColor;
 				break;
 			}
+			else if (diffuseCount == 1 && previousIntersecType == TRANSPARENT && bounceIsSpecular)
+			{
+				accumCol = mask * skyColor;
+				break;
+			}
 			else if (diffuseCount > 0)
 			{
 				weight = dot(r.direction, uSunDirection) < 0.99 ? 1.0 : 0.0;
@@ -197,7 +202,7 @@ vec3 CalculateRadiance( Ray r, out vec3 objectNormal, out vec3 objectColor, out 
 		}
 
 
-		if (intersection.type == LIGHT)
+		/* if (intersection.type == LIGHT)
 		{
 			if (diffuseCount == 0)
 				pixelSharpness = 1.01;
@@ -208,7 +213,7 @@ vec3 CalculateRadiance( Ray r, out vec3 objectNormal, out vec3 objectColor, out 
 			// reached a light, so we can exit
 			break;
 
-		} // end if (intersection.type == LIGHT)
+		} // end if (intersection.type == LIGHT) */
 
 
 		// if we get here and sampleLight is still true, shadow ray failed to find a light source
