@@ -46,7 +46,9 @@ let uSampleCounter = 0.0; // will get increased by 1 in animation loop before re
 let uOneOverSampleCounter = 0.0; // the sample accumulation buffer gets multiplied by this reciprocal of SampleCounter, for averaging final pixel color 
 let uULen = 1.0; // rendering pixel horizontal scale, related to camera's FOV and aspect ratio
 let uVLen = 1.0; // rendering pixel vertical scale, related to camera's FOV
-let uCameraIsMoving = false; // lets the path tracer know if the camera is being moved 
+let uCameraIsMoving = false; // lets the path tracer know if the camera is being moved
+let uToneMappingExposure = 1.0; // exposure amount when applying Reinhard tonemapping in final stages of pixel colors' output
+
 
 // scene/demo-specific variables;
 let sphereRadius = 16;
@@ -277,7 +279,7 @@ screenCopy_eWrapper.onApplyObservable.add(() =>
 const screenOutput_eWrapper = new BABYLON.EffectWrapper({
 	engine: engine,
 	fragmentShader: BABYLON.Effect.ShadersStore["screenOutputFragmentShader"],
-	uniformNames: ["uOneOverSampleCounter"],
+	uniformNames: ["uOneOverSampleCounter", "uToneMappingExposure"],
 	samplerNames: ["accumulationBuffer"],
 	name: "screenOutputEffectWrapper"
 });
@@ -286,6 +288,7 @@ screenOutput_eWrapper.onApplyObservable.add(() =>
 {
 	screenOutput_eWrapper.effect.setTexture("accumulationBuffer", pathTracingRenderTarget);
 	screenOutput_eWrapper.effect.setFloat("uOneOverSampleCounter", uOneOverSampleCounter);
+	screenOutput_eWrapper.effect.setFloat("uToneMappingExposure", uToneMappingExposure);
 });
 
 // MAIN PATH TRACING EFFECT
@@ -335,6 +338,7 @@ function getElapsedTimeInSeconds()
 // Register a render loop to repeatedly render the scene
 engine.runRenderLoop(function ()
 {
+
 	// first, reset cameraIsMoving flag
 	uCameraIsMoving = false;
 
@@ -401,6 +405,7 @@ engine.runRenderLoop(function ()
 		needChangeRightSphereMaterial = false;
 	}
 
+
 	// check for pointerLock state and add or remove keyboard listeners
 	if (isPaused && engine.isPointerLock)
 	{
@@ -416,7 +421,6 @@ engine.runRenderLoop(function ()
 	}
 
 	
-
 	if (windowIsBeingResized)
 	{
 		uCameraIsMoving = true;
