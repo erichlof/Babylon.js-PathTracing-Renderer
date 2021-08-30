@@ -1,6 +1,8 @@
 let canvas, engine, pathTracingScene;
 let container, stats;
 let gui;
+let pixel_ResolutionController, pixel_ResolutionObject;
+let needChangePixelResolution = false;
 let quadLight_LocationController, quadLight_LocationObject;
 let needChangeQuadLightLocation = false;
 let quadLight_RadiusController, quadLight_RadiusObject;
@@ -115,6 +117,12 @@ function onMouseWheel(event)
 	}
 }
 
+// Watch for browser/canvas resize events
+window.addEventListener("resize", function ()
+{
+	handleWindowResize();
+});
+
 if ('ontouchstart' in window)
 {
 	mouseControl = false;
@@ -127,11 +135,8 @@ if (mouseControl)
 }
 
 canvas = document.getElementById("renderCanvas");
-engine = new BABYLON.Engine(canvas, true);
-// scale image by 2, which is half the work for GPU to do (BABYLON later calculates: 1/scalingLevel = amount of GPU task)
-// so 1/scalingLevel, or 1/(2) = 0.5 GPU task - this helps most GPUs to maintain 30-60 FPS
-engine.setHardwareScalingLevel(2); // default scalingLevel is 1. You can try scalingLevel of 1 if you have a powerful GPU that can keep 60 FPS
 
+engine = new BABYLON.Engine(canvas, true);
 
 // Create the scene space
 pathTracingScene = new BABYLON.Scene(engine);
@@ -154,9 +159,32 @@ stats.domElement.style.MozUserSelect = "none";
 container.appendChild(stats.domElement);
 
 
+function handleWindowResize()
+{
+	windowIsBeingResized = true;
+
+	engine.resize();
+
+	newWidth = engine.getRenderWidth();
+	newHeight = engine.getRenderHeight();
+	pathTracingRenderTarget.resize({ width: newWidth, height: newHeight });
+	screenCopyRenderTarget.resize({ width: newWidth, height: newHeight });
+
+	width = newWidth;
+	height = newHeight;
+
+	uVLen = Math.tan(camera.fov * 0.5);
+	uULen = uVLen * (width / height);
+}
+
+
 // setup GUI
 function init_GUI()
 {
+	pixel_ResolutionObject = {
+		pixel_Resolution: 1.0
+	}
+
 	quadLight_LocationObject = {
 		QuadLight_Location: 'Ceiling'
 	};
@@ -167,6 +195,11 @@ function init_GUI()
 
 	rightSphere_MaterialObject = {
 		RSphere_MaterialPreset : 'Metal'
+	}
+
+	function handlePixelResolutionChange()
+	{
+		needChangePixelResolution = true;
 	}
 
 	function handleQuadLightLocationChange()
@@ -185,6 +218,8 @@ function init_GUI()
 	}
 
 	gui = new dat.GUI();
+
+	pixel_ResolutionController = gui.add(pixel_ResolutionObject, 'pixel_Resolution', 0.3, 1.0, 0.01).onChange(handlePixelResolutionChange);
 
 	quadLight_LocationController = gui.add(quadLight_LocationObject, 'QuadLight_Location', ['Ceiling', 
 		'Right Wall', 'Left Wall', 'Floor', 'Front Wall', 'Back Wall']).onChange(handleQuadLightLocationChange);
@@ -343,6 +378,15 @@ engine.runRenderLoop(function ()
 	uCameraIsMoving = false;
 
 	// if GUI has been used, update
+
+	if (needChangePixelResolution)
+	{
+		engine.setHardwareScalingLevel(Math.round(1 / pixel_ResolutionController.getValue()));
+
+		handleWindowResize();
+		needChangePixelResolution = false;
+	}
+
 	if (needChangeQuadLightLocation)
 	{
 		if (quadLight_LocationController.getValue() == 'Right Wall')
@@ -575,24 +619,4 @@ engine.runRenderLoop(function ()
 	eRenderer.render(screenOutput_eWrapper, null); // null, because we don't feed this non-linear image-processed output back into the pathTracing accumulation buffer as it would 'pollute' the pathtracing unbounded linear color space
 
 	stats.update();
-});
-
-
-// Watch for browser/canvas resize events
-window.addEventListener("resize", function ()
-{
-	windowIsBeingResized = true;
-
-	engine.resize();
-
-	newWidth = engine.getRenderWidth(); 
-	newHeight = engine.getRenderHeight();
-	pathTracingRenderTarget.resize({ width: newWidth, height: newHeight });
-	screenCopyRenderTarget.resize({ width: newWidth, height: newHeight });
-
-	width = newWidth;
-	height = newHeight;
-
-	uVLen = Math.tan(camera.fov * 0.5);
-	uULen = uVLen * (width / height);
-});
+}); // end engine.runRenderLoop(function ()
