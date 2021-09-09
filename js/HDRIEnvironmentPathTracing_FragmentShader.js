@@ -563,6 +563,8 @@ vec3 CalculateRadiance( Ray r, out vec3 objectNormal, out vec3 objectColor, out 
 
 			// TODO: turn on refractive caustics and 
 			// handle fireflies in "if (intersection.t == INFINITY)" code above
+			// if (diffuseCount == 1)
+			// 	bounceIsSpecular = true; // turn on refracting caustics
 
 			continue;
 
@@ -615,9 +617,9 @@ vec3 CalculateRadiance( Ray r, out vec3 objectNormal, out vec3 objectColor, out 
 			weight = max(0.0, dot(r.direction, nl)) * 0.00002; // down-weight directSunLight contribution
 			mask *= weight;
 
-			/* // this check helps keep random noisy bright pixels from this clearCoat diffuse surface out of the possible previous refracted glass surface
+			// this check helps keep random noisy bright pixels from this clearCoat diffuse surface out of the possible previous refracted glass surface
 			if (bounces < 3) 
-				sampleLight = true; */
+				sampleLight = true;
 			continue;
 
 		} //end if (intersection.type == CLEARCOAT_DIFFUSE)
