@@ -488,7 +488,7 @@ vec3 CalculateRadiance( Ray r, out vec3 objectNormal, out vec3 objectColor, out 
 
 			bounceIsSpecular = false;
 
-			if (diffuseCount == 1 && blueNoise_rand() < 0.5)
+			if (diffuseCount < 3 && blueNoise_rand() < 0.5)
 			{
 				r = Ray( x, randomCosWeightedDirectionInHemisphere(nl) );
 				r.origin += nl * uEPS_intersect;
@@ -499,7 +499,8 @@ vec3 CalculateRadiance( Ray r, out vec3 objectNormal, out vec3 objectColor, out 
 			r.direction = randomDirectionInSpecularLobe(r.direction, 0.03);
 			r.origin += nl * uEPS_intersect;
 			
-			weight = max(0.0, dot(r.direction, nl)) * 0.00002; // down-weight directSunLight contribution
+			// TODO: make the following down-weight magic number into a user-controlled uniform
+			weight = max(0.0, dot(r.direction, nl)) * 0.0001; // down-weight directSunLight contribution
 			mask *= weight;
 
 			sampleLight = true;
@@ -602,7 +603,7 @@ vec3 CalculateRadiance( Ray r, out vec3 objectNormal, out vec3 objectColor, out 
 
 			bounceIsSpecular = false;
 
-			if (diffuseCount == 1 && blueNoise_rand() < 0.5)
+			if (diffuseCount < 3 && blueNoise_rand() < 0.5)
 			{
 				// choose random Diffuse sample vector
 				r = Ray( x, randomCosWeightedDirectionInHemisphere(nl) );
@@ -614,7 +615,8 @@ vec3 CalculateRadiance( Ray r, out vec3 objectNormal, out vec3 objectColor, out 
 			r.direction = randomDirectionInSpecularLobe(r.direction, 0.03);
 			r.origin += nl * uEPS_intersect;
 			
-			weight = max(0.0, dot(r.direction, nl)) * 0.00002; // down-weight directSunLight contribution
+			// TODO: make the following down-weight magic number into a user-controlled uniform
+			weight = max(0.0, dot(r.direction, nl)) * 0.0001; // down-weight directSunLight contribution
 			mask *= weight;
 
 			// this check helps keep random noisy bright pixels from this clearCoat diffuse surface out of the possible previous refracted glass surface
