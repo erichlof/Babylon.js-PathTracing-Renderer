@@ -715,7 +715,12 @@ gltfModelTransformNode.scaling.set(0, 0, 0); // temporarily makes model invisibl
 
 
 
-const hdrFileURL = "./textures/symmetrical_garden_2k.hdr";
+//const hdrFileURL = "./textures/symmetrical_garden_2k.hdr";
+//const hdrFileURL = "./textures/delta_2_2k.hdr";
+//const hdrFileURL = "./textures/kiara_5_noon_2k.hdr";
+const hdrFileURL = "./textures/noon_grass_2k.hdr";
+//const hdrFileURL = "./textures/cloud_layers_2k.hdr";
+
 
 hdr = new BABYLON.Texture(hdrFileURL, pathTracingScene, true, false, undefined, async () =>
 {
