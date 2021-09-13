@@ -19,6 +19,7 @@ uniform mat4 uRightSphereInvMatrix;
 uniform mat4 uGLTF_Model_InvMatrix;
 uniform vec3 uSunDirection;
 uniform float uHDRExposure;
+uniform float uSunPower;
 uniform int uModelMaterialType;
 uniform bool uModelUsesAlbedoTexture;
 uniform bool uModelUsesBumpTexture;
@@ -500,8 +501,7 @@ vec3 CalculateRadiance( Ray r, out vec3 objectNormal, out vec3 objectColor, out 
 			r.direction = randomDirectionInSpecularLobe(r.direction, 0.03);
 			r.origin += nl * uEPS_intersect;
 			
-			// TODO: make the following down-weight magic number into a user-controlled uniform
-			weight = max(0.0, dot(r.direction, nl)) * 0.0001; // down-weight directSunLight contribution
+			weight = max(0.0, dot(r.direction, nl)) * (uSunPower * uSunPower * 0.0000001); // down-weight directSunLight contribution
 			mask *= weight;
 
 			sampleLight = true;
@@ -616,8 +616,7 @@ vec3 CalculateRadiance( Ray r, out vec3 objectNormal, out vec3 objectColor, out 
 			r.direction = randomDirectionInSpecularLobe(r.direction, 0.03);
 			r.origin += nl * uEPS_intersect;
 			
-			// TODO: make the following down-weight magic number into a user-controlled uniform
-			weight = max(0.0, dot(r.direction, nl)) * 0.0001; // down-weight directSunLight contribution
+			weight = max(0.0, dot(r.direction, nl)) * (uSunPower * uSunPower * 0.0000001); // down-weight directSunLight contribution
 			mask *= weight;
 
 			// this check helps keep random noisy bright pixels from this clearCoat diffuse surface out of the possible previous refracted glass surface
