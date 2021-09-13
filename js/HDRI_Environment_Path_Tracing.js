@@ -7,6 +7,8 @@ let hdr_SelectionController, hdr_SelectionObject;
 let needChangeHDRSelection = false;
 let hdr_ExposureController, hdr_ExposureObject;
 let needChangeHDRExposure = false;
+let sun_PowerController, sun_PowerObject;
+let needChangeSunPower = false;
 let gltfModel_SelectionController, gltfModel_SelectionObject;
 let needChangeGltfModelSelection = false;
 let model_MaterialController, model_MaterialObject;
@@ -78,7 +80,7 @@ let uOneOverSampleCounter = 0.0; // the sample accumulation buffer gets multipli
 let uULen = 1.0; // rendering pixel horizontal scale, related to camera's FOV and aspect ratio
 let uVLen = 1.0; // rendering pixel vertical scale, related to camera's FOV
 let uCameraIsMoving = false; // lets the path tracer know if the camera is being moved
-let uToneMappingExposure = 1.0; // exposure amount when applying Reinhard tonemapping in final stages of pixel colors' output
+let uToneMappingExposure = 1.2; // exposure amount when applying Reinhard tonemapping in final stages of pixel colors' output
 
 
 // scene/demo-specific variables
@@ -104,7 +106,8 @@ let hdrTexture;
 let hdrFileURL = "";
 
 // scene/demo-specific uniforms
-let uHDRExposure = 1.0;
+let uHDRExposure;
+let uSunPower;
 let uModelMaterialType;
 let uModelUsesAlbedoTexture = false;
 let uModelUsesBumpTexture = false;
@@ -550,7 +553,11 @@ function init_GUI()
 	};
 
 	hdr_ExposureObject = {
-		HDR_Exposure: 1.0
+		HDR_Exposure: 1.2
+	};
+
+	sun_PowerObject = {
+		Sun_Power: 20
 	};
 
 	gltfModel_SelectionObject = {
@@ -625,6 +632,11 @@ function init_GUI()
 		needChangeHDRExposure = true;
 	}
 
+	function handleSunPowerChange()
+	{
+		needChangeSunPower = true;
+	}
+
 	function handleGltfModelSelectionChange()
 	{
 		needChangeGltfModelSelection = true;
@@ -663,7 +675,9 @@ function init_GUI()
 	hdr_SelectionController = gui.add(hdr_SelectionObject, 'HDR_Selection', ['Noon Grass',
 		'Symmetrical Garden', 'Kiara 5 Noon', 'Cloud Layers', 'Delta 2']).onChange(handleHDRSelectionChange);
 
-	hdr_ExposureController = gui.add(hdr_ExposureObject, 'HDR_Exposure', 0, 3, 0.05).onChange(handleHDRExposureChange);
+	hdr_ExposureController = gui.add(hdr_ExposureObject, 'HDR_Exposure', 0.05, 3, 0.05).onChange(handleHDRExposureChange);
+
+	sun_PowerController = gui.add(sun_PowerObject, 'Sun_Power', 1, 50, 1).onChange(handleSunPowerChange);
 
 	gltfModel_SelectionController = gui.add(gltfModel_SelectionObject, 'Model_Selection', ['Utah Teapot',
 		'Stanford Bunny', 'Stanford Dragon', 'glTF Duck', 'Damaged Helmet']).onChange(handleGltfModelSelectionChange);
@@ -717,7 +731,8 @@ const uEPS_intersect = mouseControl ? 0.01 : 1.0; // less precision on mobile - 
 apertureChangeAmount = 1; // scene specific, depending on scene size dimensions
 focusDistChangeAmount = 1; // scene specific, depending on scene size dimensions
 uModelMaterialType = 3; // enum number code for METAL material - demo starts off with this setting for the glTF/glb model
-uHDRExposure = 1.0;
+uHDRExposure = 1.2; // overall brightness of HDR environment image
+uSunPower = 20.0; // apparent brightness of the Sun in the HDR (separate from the rest of the sky)
 
 oldCameraMatrix = new BABYLON.Matrix();
 newCameraMatrix = new BABYLON.Matrix();
@@ -872,7 +887,7 @@ screenOutput_eWrapper.onApplyObservable.add(() =>
 const pathTracing_eWrapper = new BABYLON.EffectWrapper({
 	engine: engine,
 	fragmentShader: BABYLON.Effect.ShadersStore["pathTracingFragmentShader"],
-	uniformNames: ["uResolution", "uRandomVec2", "uULen", "uVLen", "uTime", "uFrameCounter", "uSampleCounter", "uEPS_intersect", "uCameraMatrix",
+	uniformNames: ["uResolution", "uRandomVec2", "uULen", "uVLen", "uTime", "uFrameCounter", "uSampleCounter", "uEPS_intersect", "uCameraMatrix", "uSunPower",
 		"uApertureSize", "uFocusDistance", "uHDRExposure", "uCameraIsMoving", "uLeftSphereInvMatrix", "uRightSphereInvMatrix", "uGLTF_Model_InvMatrix",
 		"uModelMaterialType", "uModelUsesAlbedoTexture", "uModelUsesBumpTexture", "uModelUsesMetallicTexture", "uModelUsesEmissiveTexture", "uSunDirection"],
 	samplerNames: ["previousBuffer", "blueNoiseTexture", "tAABBTexture", "tTriangleTexture", "tAlbedoTexture", "tBumpTexture", 
@@ -906,6 +921,7 @@ pathTracing_eWrapper.onApplyObservable.add(() =>
 	pathTracing_eWrapper.effect.setFloat("uApertureSize", uApertureSize);
 	pathTracing_eWrapper.effect.setFloat("uFocusDistance", uFocusDistance);
 	pathTracing_eWrapper.effect.setFloat("uHDRExposure", uHDRExposure);
+	pathTracing_eWrapper.effect.setFloat("uSunPower", uSunPower);
 	pathTracing_eWrapper.effect.setInt("uModelMaterialType", uModelMaterialType);
 	pathTracing_eWrapper.effect.setBool("uCameraIsMoving", uCameraIsMoving);
 	pathTracing_eWrapper.effect.setBool("uModelUsesAlbedoTexture", uModelUsesAlbedoTexture);
@@ -982,6 +998,14 @@ engine.runRenderLoop(function ()
 
 		uCameraIsMoving = true;
 		needChangeHDRExposure = false;
+	}
+
+	if (needChangeSunPower)
+	{
+		uSunPower = sun_PowerController.getValue();
+
+		uCameraIsMoving = true;
+		needChangeSunPower = false;
 	}
 
 
