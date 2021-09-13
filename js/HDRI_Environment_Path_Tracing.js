@@ -3,6 +3,10 @@ let container, stats;
 let gui;
 let pixel_ResolutionController, pixel_ResolutionObject;
 let needChangePixelResolution = false;
+let hdr_SelectionController, hdr_SelectionObject;
+let needChangeHDRSelection = false;
+let hdr_ExposureController, hdr_ExposureObject;
+let needChangeHDRExposure = false;
 let gltfModel_SelectionController, gltfModel_SelectionObject;
 let needChangeGltfModelSelection = false;
 let model_MaterialController, model_MaterialObject;
@@ -97,8 +101,10 @@ let triangleDataTexture;
 let aabb_array;
 let aabbDataTexture;
 let hdrTexture;
+let hdrFileURL = "";
 
 // scene/demo-specific uniforms
+let uHDRExposure = 1.0;
 let uModelMaterialType;
 let uModelUsesAlbedoTexture = false;
 let uModelUsesBumpTexture = false;
@@ -491,7 +497,7 @@ function Prepare_Model_For_PathTracing()
 
 } // end function Prepare_Model_For_PathTracing()
 
-// kickstart the loading process
+// kickstart the model loading process
 loadModel();
 
 
@@ -538,6 +544,14 @@ function init_GUI()
 	pixel_ResolutionObject = {
 		pixel_Resolution: 1.0
 	}
+
+	hdr_SelectionObject = {
+		HDR_Selection: 'Noon Grass'
+	};
+
+	hdr_ExposureObject = {
+		HDR_Exposure: 1.0
+	};
 
 	gltfModel_SelectionObject = {
 		Model_Selection: 'Utah Teapot'
@@ -601,6 +615,16 @@ function init_GUI()
 		needChangePixelResolution = true;
 	}
 
+	function handleHDRSelectionChange()
+	{
+		needChangeHDRSelection = true;
+	}
+	
+	function handleHDRExposureChange()
+	{
+		needChangeHDRExposure = true;
+	}
+
 	function handleGltfModelSelectionChange()
 	{
 		needChangeGltfModelSelection = true;
@@ -635,6 +659,11 @@ function init_GUI()
 	gui = new dat.GUI();
 
 	pixel_ResolutionController = gui.add(pixel_ResolutionObject, 'pixel_Resolution', 0.3, 1.0, 0.01).onChange(handlePixelResolutionChange);
+
+	hdr_SelectionController = gui.add(hdr_SelectionObject, 'HDR_Selection', ['Noon Grass',
+		'Symmetrical Garden', 'Kiara 5 Noon', 'Cloud Layers', 'Delta 2']).onChange(handleHDRSelectionChange);
+
+	hdr_ExposureController = gui.add(hdr_ExposureObject, 'HDR_Exposure', 0, 3, 0.05).onChange(handleHDRExposureChange);
 
 	gltfModel_SelectionController = gui.add(gltfModel_SelectionObject, 'Model_Selection', ['Utah Teapot',
 		'Stanford Bunny', 'Stanford Dragon', 'glTF Duck', 'Damaged Helmet']).onChange(handleGltfModelSelectionChange);
@@ -688,6 +717,7 @@ const uEPS_intersect = mouseControl ? 0.01 : 1.0; // less precision on mobile - 
 apertureChangeAmount = 1; // scene specific, depending on scene size dimensions
 focusDistChangeAmount = 1; // scene specific, depending on scene size dimensions
 uModelMaterialType = 3; // enum number code for METAL material - demo starts off with this setting for the glTF/glb model
+uHDRExposure = 1.0;
 
 oldCameraMatrix = new BABYLON.Matrix();
 newCameraMatrix = new BABYLON.Matrix();
@@ -714,69 +744,72 @@ gltfModelTransformNode.rotation.set(0, Math.PI, 0);
 gltfModelTransformNode.scaling.set(0, 0, 0); // temporarily makes model invisible while it is being loaded and prepared
 
 
+hdrFileURL = "./textures/noon_grass_2k.hdr";
 
-//const hdrFileURL = "./textures/symmetrical_garden_2k.hdr";
-//const hdrFileURL = "./textures/delta_2_2k.hdr";
-//const hdrFileURL = "./textures/kiara_5_noon_2k.hdr";
-const hdrFileURL = "./textures/noon_grass_2k.hdr";
-//const hdrFileURL = "./textures/cloud_layers_2k.hdr";
-
-
-hdr = new BABYLON.Texture(hdrFileURL, pathTracingScene, true, false, undefined, async () =>
+function loadHDR()
 {
-	const hdrWidth = hdr.getSize().width;
-	const hdrHeight = hdr.getSize().height;
-	const data = await hdr.readPixels();
-	const dataLength = data.length;
+	hdr = null;
+	hdrTexture = null;
 
-	let texel = 0;
-	let max = 0;
-	for (let i = 0; i < dataLength; i += 4)
+	hdr = new BABYLON.Texture(hdrFileURL, pathTracingScene, true, false, undefined, async () =>
 	{
-		if (max < data[i])
+		let hdrWidth = hdr.getSize().width;
+		let hdrHeight = hdr.getSize().height;
+		let data = await hdr.readPixels();
+		let dataLength = data.length;
+
+		let texel = 0;
+		let max = 0;
+		for (let i = 0; i < dataLength; i += 4)
 		{
-			texel = i;
-			max = data[i];
+			if (max < data[i])
+			{
+				texel = i;
+				max = data[i];
+			}
+			if (max < data[i + 1])
+			{
+				texel = i;
+				max = data[i + 1];
+			}
+			if (max < data[i + 2])
+			{
+				texel = i;
+				max = data[i + 2];
+			}
 		}
-		if (max < data[i + 1])
-		{
-			texel = i;
-			max = data[i + 1];
-		}
-		if (max < data[i + 2])
-		{
-			texel = i;
-			max = data[i + 2];
-		}
-	}
 
-	console.log("brightest texel index: " + texel);
-	texel /= 4;
-	let brightestPixelX = texel % hdrWidth;
-	let brightestPixelY = Math.floor(texel / hdrWidth);
+		console.log("brightest texel index: " + texel);
+		texel /= 4;
+		let brightestPixelX = texel % hdrWidth;
+		let brightestPixelY = Math.floor(texel / hdrWidth);
 
-	let HDRI_bright_u = brightestPixelX / hdrWidth;
-	let HDRI_bright_v = brightestPixelY / hdrHeight;
+		let HDRI_bright_u = brightestPixelX / hdrWidth;
+		let HDRI_bright_v = brightestPixelY / hdrHeight;
 
-	let phi = HDRI_bright_v * Math.PI; // use 'v'
-	let theta = HDRI_bright_u * 2 * Math.PI; // use 'u'
+		let phi = HDRI_bright_v * Math.PI; // use 'v'
+		let theta = HDRI_bright_u * 2 * Math.PI; // use 'u'
 
-	// set a 3D vector (uSunDirection) from spherical coordinates (phi, theta)
-	let sinPhiRadius = Math.sin(phi);
-	uSunDirection.x = sinPhiRadius * Math.sin(theta);
-	uSunDirection.y = Math.cos(phi);
-	uSunDirection.z = sinPhiRadius * Math.cos(theta);
+		// set a 3D vector (uSunDirection) from spherical coordinates (phi, theta)
+		let sinPhiRadius = Math.sin(phi);
+		uSunDirection.x = sinPhiRadius * Math.sin(theta);
+		uSunDirection.y = Math.cos(phi);
+		uSunDirection.z = sinPhiRadius * Math.cos(theta);
 
-	uSunDirection.x *= -1;
-	uSunDirection.z *= -1;
+		uSunDirection.x *= -1;
+		uSunDirection.z *= -1;
 
-	console.log("hdr width: " + hdrWidth + " hdr height: " + hdrHeight);
-	console.log("brightestPixelX: " + brightestPixelX + " brightestPixelY: " + brightestPixelY); // for debug
-	console.log("brightest value: " + max);
-	//console.log(data);
+		console.log("hdr width: " + hdrWidth + " hdr height: " + hdrHeight);
+		console.log("brightestPixelX: " + brightestPixelX + " brightestPixelY: " + brightestPixelY); // for debug
+		console.log("brightest value: " + max);
+		//console.log(data);
 
-	hdrTexture = BABYLON.RawTexture.CreateRGBATexture(data, hdrWidth, hdrHeight, pathTracingScene, false, true, undefined, BABYLON.Constants.TEXTURETYPE_FLOAT);
-});
+		hdrTexture = BABYLON.RawTexture.CreateRGBATexture(data, hdrWidth, hdrHeight, pathTracingScene, false, true, undefined, BABYLON.Constants.TEXTURETYPE_FLOAT);
+	});
+} // end function loadHDR()
+
+// kickstart the HDR loading process
+loadHDR();
 
 
 blueNoiseTexture = new BABYLON.Texture("./textures/BlueNoise_RGBA256.png",
@@ -840,7 +873,7 @@ const pathTracing_eWrapper = new BABYLON.EffectWrapper({
 	engine: engine,
 	fragmentShader: BABYLON.Effect.ShadersStore["pathTracingFragmentShader"],
 	uniformNames: ["uResolution", "uRandomVec2", "uULen", "uVLen", "uTime", "uFrameCounter", "uSampleCounter", "uEPS_intersect", "uCameraMatrix",
-		"uApertureSize", "uFocusDistance", "uCameraIsMoving", "uLeftSphereInvMatrix", "uRightSphereInvMatrix", "uGLTF_Model_InvMatrix",
+		"uApertureSize", "uFocusDistance", "uHDRExposure", "uCameraIsMoving", "uLeftSphereInvMatrix", "uRightSphereInvMatrix", "uGLTF_Model_InvMatrix",
 		"uModelMaterialType", "uModelUsesAlbedoTexture", "uModelUsesBumpTexture", "uModelUsesMetallicTexture", "uModelUsesEmissiveTexture", "uSunDirection"],
 	samplerNames: ["previousBuffer", "blueNoiseTexture", "tAABBTexture", "tTriangleTexture", "tAlbedoTexture", "tBumpTexture", 
 		"tMetallicTexture", "tEmissiveTexture", "tHDRTexture"],
@@ -872,6 +905,7 @@ pathTracing_eWrapper.onApplyObservable.add(() =>
 	pathTracing_eWrapper.effect.setFloat("uEPS_intersect", uEPS_intersect);
 	pathTracing_eWrapper.effect.setFloat("uApertureSize", uApertureSize);
 	pathTracing_eWrapper.effect.setFloat("uFocusDistance", uFocusDistance);
+	pathTracing_eWrapper.effect.setFloat("uHDRExposure", uHDRExposure);
 	pathTracing_eWrapper.effect.setInt("uModelMaterialType", uModelMaterialType);
 	pathTracing_eWrapper.effect.setBool("uCameraIsMoving", uCameraIsMoving);
 	pathTracing_eWrapper.effect.setBool("uModelUsesAlbedoTexture", uModelUsesAlbedoTexture);
@@ -910,6 +944,46 @@ engine.runRenderLoop(function ()
 		handleWindowResize();
 		needChangePixelResolution = false;
 	}
+	
+
+	if (needChangeHDRSelection)
+	{
+		if (hdr_SelectionController.getValue() == 'Noon Grass')
+		{
+			hdrFileURL = "./textures/noon_grass_2k.hdr";
+		}
+		else if (hdr_SelectionController.getValue() == 'Symmetrical Garden')
+		{
+			hdrFileURL = "./textures/symmetrical_garden_2k.hdr";
+		}
+		else if (hdr_SelectionController.getValue() == 'Kiara 5 Noon')
+		{
+			hdrFileURL = "./textures/kiara_5_noon_2k.hdr";
+		}
+		else if (hdr_SelectionController.getValue() == 'Cloud Layers')
+		{
+			hdrFileURL = "./textures/cloud_layers_2k.hdr";
+		}
+		else if (hdr_SelectionController.getValue() == 'Delta 2')
+		{
+			hdrFileURL = "./textures/delta_2_2k.hdr";
+		}
+
+		loadHDR(); // load the newly selected HDR
+
+		uCameraIsMoving = true;
+		needChangeHDRSelection = false;
+	}
+
+	if (needChangeHDRExposure)
+	{
+		uHDRExposure = hdr_ExposureController.getValue();
+		uToneMappingExposure = hdr_ExposureController.getValue();
+
+		uCameraIsMoving = true;
+		needChangeHDRExposure = false;
+	}
+
 
 	if (needChangeGltfModelSelection)
 	{
