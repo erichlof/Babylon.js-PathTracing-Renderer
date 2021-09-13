@@ -18,6 +18,7 @@ uniform mat4 uLeftSphereInvMatrix;
 uniform mat4 uRightSphereInvMatrix;
 uniform mat4 uGLTF_Model_InvMatrix;
 uniform vec3 uSunDirection;
+uniform float uHDRExposure;
 uniform int uModelMaterialType;
 uniform bool uModelUsesAlbedoTexture;
 uniform bool uModelUsesBumpTexture;
@@ -351,7 +352,7 @@ vec3 Get_HDR_Color(Ray r)
 	
 	vec3 texColor = texture(tHDRTexture, sampleUV).rgb;
 
-	return texColor;// * uHDRI_Exposure;
+	return texColor * uHDRExposure;
 }
 
 //-----------------------------------------------------------------------------------------------------------------------------
