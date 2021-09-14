@@ -415,8 +415,10 @@ vec3 CalculateRadiance( Ray r, out vec3 objectNormal, out vec3 objectColor, out 
 				accumCol = mask * environmentColor;
 				break;
 			}
-			else if (diffuseCount == 1 && previousIntersecType == TRANSPARENT && bounceIsSpecular)
+			else if (diffuseCount == 1 && previousIntersecType == TRANSPARENT && bounceIsSpecular && bounces < 3)
 			{
+				if (dot(r.direction, uSunDirection) > 0.99)
+					pixelSharpness = 1.01;
 				accumCol = mask * environmentColor;
 				break;
 			}
@@ -490,7 +492,7 @@ vec3 CalculateRadiance( Ray r, out vec3 objectNormal, out vec3 objectColor, out 
 
 			bounceIsSpecular = false;
 
-			if (diffuseCount < 3 && blueNoise_rand() < 0.5)
+			if (diffuseCount <= 2 && blueNoise_rand() < 0.5)
 			{
 				r = Ray( x, randomCosWeightedDirectionInHemisphere(nl) );
 				r.origin += nl * uEPS_intersect;
@@ -563,10 +565,8 @@ vec3 CalculateRadiance( Ray r, out vec3 objectNormal, out vec3 objectColor, out 
 			r = Ray(x, tdir);
 			r.origin -= nl * uEPS_intersect;
 
-			// TODO: turn on refractive caustics and 
-			// handle fireflies in "if (intersection.t == INFINITY)" code above
-			// if (diffuseCount == 1)
-			// 	bounceIsSpecular = true; // turn on refracting caustics
+			if (diffuseCount == 1)
+				bounceIsSpecular = true; // turn on refracting caustics
 
 			continue;
 
@@ -604,7 +604,7 @@ vec3 CalculateRadiance( Ray r, out vec3 objectNormal, out vec3 objectColor, out 
 
 			bounceIsSpecular = false;
 
-			if (diffuseCount < 3 && blueNoise_rand() < 0.5)
+			if (diffuseCount <= 2 && blueNoise_rand() < 0.5)
 			{
 				// choose random Diffuse sample vector
 				r = Ray( x, randomCosWeightedDirectionInHemisphere(nl) );
