@@ -197,7 +197,7 @@ pathTracingScene = new BABYLON.Scene(engine);
 
 //modelNameAndExtension = "twoParts-opaque.gltf";
 modelNameAndExtension = "testBookCase.gltf";
-modelInitialScale = 20;
+modelInitialScale = 15;
 modelWasDefinedInRHCoordSystem = false;
 
 function loadModel()
@@ -499,7 +499,7 @@ function Prepare_Model_For_PathTracing()
         // for debugging bookShelf gltf model
         if (gltfModel_SelectionController.getValue() == 'test BookCase')
         {
-                transform_TranslateXController.setValue(-43);
+                transform_TranslateXController.setValue(-31);
                 transform_TranslateYController.setValue(-15);
         }
         
@@ -902,7 +902,7 @@ engine.runRenderLoop(function ()
                 if (gltfModel_SelectionController.getValue() == 'test BookCase')
                 {
                         modelNameAndExtension = "testBookCase.gltf";
-                        modelInitialScale = 20;
+                        modelInitialScale = 15;
                         modelWasDefinedInRHCoordSystem = false;
                         transform_RotateYController.setValue(180);
                 }
