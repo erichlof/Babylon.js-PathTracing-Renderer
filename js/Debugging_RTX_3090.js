@@ -195,10 +195,8 @@ pathTracingScene = new BABYLON.Scene(engine);
 
 // Load in the model either in glTF or glb format  /////////////////////////////////////////////////////
 
-//modelNameAndExtension = "twoParts-opaque.gltf";
-modelNameAndExtension = "testBookCase.gltf";
-modelInitialScale = 15;
-modelWasDefinedInRHCoordSystem = false;
+modelNameAndExtension = "UtahTeapot.glb";
+modelInitialScale = 130;
 
 function loadModel()
 {
@@ -555,7 +553,7 @@ function init_GUI()
         }
 
         gltfModel_SelectionObject = {
-                Model_Selection: 'test BookCase'
+                Model_Selection: 'Utah Teapot'
         };
 
         quadLight_LocationObject = {
@@ -669,8 +667,8 @@ function init_GUI()
 
         pixel_ResolutionController = gui.add(pixel_ResolutionObject, 'pixel_Resolution', 0.1, 1.0, 0.01).onChange(handlePixelResolutionChange);
 
-        gltfModel_SelectionController = gui.add(gltfModel_SelectionObject, 'Model_Selection', ['test BookCase',
-                'Stanford Bunny', 'Stanford Dragon', 'glTF Duck', 'Damaged Helmet']).onChange(handleGltfModelSelectionChange);
+        gltfModel_SelectionController = gui.add(gltfModel_SelectionObject, 'Model_Selection', ['Utah Teapot', 
+                'Stanford Bunny', 'Stanford Dragon', 'glTF Duck', 'Damaged Helmet', 'test BookCase']).onChange(handleGltfModelSelectionChange);
 
         quadLight_LocationController = gui.add(quadLight_LocationObject, 'QuadLight_Location', ['Ceiling',
                 'Right Wall', 'Left Wall', 'Floor', 'Front Wall', 'Back Wall']).onChange(handleQuadLightLocationChange);
@@ -902,11 +900,11 @@ engine.runRenderLoop(function ()
                 transform_TranslateYController.setValue(0);
                 transform_TranslateZController.setValue(0);
 
-                if (gltfModel_SelectionController.getValue() == 'test BookCase')
+                if (gltfModel_SelectionController.getValue() == 'Utah Teapot')
                 {
-                        modelNameAndExtension = "testBookCase.gltf";
-                        modelInitialScale = 15;
-                        modelWasDefinedInRHCoordSystem = false;
+                        modelNameAndExtension = "UtahTeapot.glb";
+                        modelWasDefinedInRHCoordSystem = true;
+                        modelInitialScale = 130;
                         transform_RotateYController.setValue(180);
                 }
                 else if (gltfModel_SelectionController.getValue() == 'Stanford Bunny')
@@ -934,6 +932,13 @@ engine.runRenderLoop(function ()
                         modelWasDefinedInRHCoordSystem = false;
                         modelInitialScale = 15;
                         transform_RotateXController.setValue(90);
+                        transform_RotateYController.setValue(180);
+                }
+                else if (gltfModel_SelectionController.getValue() == 'test BookCase')
+                {
+                        modelNameAndExtension = "testBookCase.gltf";
+                        modelInitialScale = 15;
+                        modelWasDefinedInRHCoordSystem = false;
                         transform_RotateYController.setValue(180);
                 }
 
