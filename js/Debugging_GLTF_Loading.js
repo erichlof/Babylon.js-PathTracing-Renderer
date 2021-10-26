@@ -224,27 +224,34 @@ function loadModel()
                         }
                 }
 
+                // DEBUG SECTION
                 console.log("");
-                console.log("Selecting 1 example mesh out of 150 total meshes...");
+                console.log("Selecting a single example mesh out of 150 total meshes...");
                 console.log("");
                 console.log("Mesh's index number:");
-                console.log("meshes[1]  (chosen out of meshes[150] total meshes)");
+                console.log("meshes[3]  (chosen out of meshes[150] total meshes)");
                 console.log("");
-                console.log("meshes[1]'s material ID:");
-                console.log(container.meshes[1].material.id);
+                console.log("meshes[3]'s material ID:");
+                console.log(container.meshes[3].material.id);
                 console.log("");
-                console.log("meshes[1]'s material uniqueId:");
-                console.log(container.meshes[1].material.uniqueId);
+                console.log("meshes[3]'s material uniqueId:");
+                console.log(container.meshes[3].material.uniqueId);
                 console.log("");
-                console.log("meshes[1]'s albedoTexture url:");
-                console.log(container.meshes[1].material.albedoTexture.url);
+                console.log("meshes[3]'s albedoTexture url:");
+                console.log(container.meshes[3].material.albedoTexture.url);
                 console.log("");
-                console.log("meshes[1]'s albedoTexture _buffer data:");
-                console.log(container.meshes[1].material.albedoTexture._buffer);
+                console.log("meshes[3]'s albedoTexture _buffer data:");
+                console.log(container.meshes[3].material.albedoTexture._buffer);
                 console.log("");
-                console.log("For reference, meshes[1]'s entire albedoTexture object:");
-                console.log(container.meshes[1].material.albedoTexture);
+                console.log("For reference, meshes[3]'s entire albedoTexture object:");
+                console.log(container.meshes[3].material.albedoTexture);
                 console.log("");
+
+                // force meshes[3]'s material.albedoTexture on all model mesh components
+                albedoTexture = container.meshes[3].material.albedoTexture;
+                uModelUsesAlbedoTexture = true;
+                // END DEBUG SECTION
+                
 
                 if (container.meshes.length > 1)
                 {
@@ -274,12 +281,12 @@ function loadModel()
 
                 total_number_of_triangles = pathTracedMesh.getTotalVertices() / 3;
 
-                // model has albedo texture?
+                /* // model has albedo texture?
                 if (pathTracedMesh.material.albedoTexture != undefined)
                 {
                         albedoTexture = pathTracedMesh.material.albedoTexture;
                         uModelUsesAlbedoTexture = true;
-                }
+                } */
                 // model has bump texture?
                 if (pathTracedMesh.material.bumpTexture != undefined)
                 {
@@ -360,9 +367,9 @@ function Prepare_Model_For_PathTracing()
                 }
                 else
                 {
-                        vt0.set(-1, -1);
-                        vt1.set(-1, -1);
-                        vt2.set(-1, -1);
+                        vt0.set(0, 0);
+                        vt1.set(0, 0);
+                        vt2.set(0, 0);
                 }
 
                 // record vertex normals
@@ -525,6 +532,7 @@ function Prepare_Model_For_PathTracing()
         {
                 transform_TranslateXController.setValue(-31);
                 transform_TranslateYController.setValue(-15);
+                transform_TranslateZController.setValue(22);
         }
         
 
