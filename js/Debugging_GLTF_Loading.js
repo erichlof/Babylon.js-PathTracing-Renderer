@@ -216,11 +216,35 @@ function loadModel()
 
                 for (let i = 0; i < container.meshes.length; i++)
                 {
+                        //console.log(container.meshes[i].material);
+
                         if (container.meshes[i].geometry)
                         {
                                 containerMeshes.push(container.meshes[i]);
                         }
                 }
+
+                console.log("");
+                console.log("Selecting 1 example mesh out of 150 total meshes...");
+                console.log("");
+                console.log("Mesh's index number:");
+                console.log("meshes[1]  (chosen out of meshes[150] total meshes)");
+                console.log("");
+                console.log("meshes[1]'s material ID:");
+                console.log(container.meshes[1].material.id);
+                console.log("");
+                console.log("meshes[1]'s material uniqueId:");
+                console.log(container.meshes[1].material.uniqueId);
+                console.log("");
+                console.log("meshes[1]'s albedoTexture url:");
+                console.log(container.meshes[1].material.albedoTexture.url);
+                console.log("");
+                console.log("meshes[1]'s albedoTexture _buffer data:");
+                console.log(container.meshes[1].material.albedoTexture._buffer);
+                console.log("");
+                console.log("For reference, meshes[1]'s entire albedoTexture object:");
+                console.log(container.meshes[1].material.albedoTexture);
+                console.log("");
 
                 if (container.meshes.length > 1)
                 {
