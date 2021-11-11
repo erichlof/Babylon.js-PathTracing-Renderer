@@ -251,7 +251,7 @@ function loadModel()
                 albedoTexture = container.meshes[3].material.albedoTexture;
                 uModelUsesAlbedoTexture = true;
                 // END DEBUG SECTION
-                
+
 
                 if (container.meshes.length > 1)
                 {
@@ -281,12 +281,15 @@ function loadModel()
 
                 total_number_of_triangles = pathTracedMesh.getTotalVertices() / 3;
 
+		// DEBUG
                 /* // model has albedo texture?
                 if (pathTracedMesh.material.albedoTexture != undefined)
                 {
                         albedoTexture = pathTracedMesh.material.albedoTexture;
                         uModelUsesAlbedoTexture = true;
                 } */
+		// END DEBUG
+		
                 // model has bump texture?
                 if (pathTracedMesh.material.bumpTexture != undefined)
                 {
@@ -754,7 +757,7 @@ camera.angularSensibility = 500;
 camFlightSpeed = 100; // scene specific, depending on scene size dimensions
 uApertureSize = 0.0; // aperture size at beginning of app
 uFocusDistance = 113.0; // initial focus distance from camera in scene - scene specific, depending on scene size dimensions
-const uEPS_intersect = mouseControl ? 0.01 : 1.0; // less precision on mobile - also both values are scene-size dependent
+const uEPS_intersect = 0.01; // value is scene-size dependent
 apertureChangeAmount = 1; // scene specific, depending on scene size dimensions
 focusDistChangeAmount = 1; // scene specific, depending on scene size dimensions
 uQuadLightPlaneSelectionNumber = 6;
