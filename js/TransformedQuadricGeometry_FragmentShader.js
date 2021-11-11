@@ -26,11 +26,13 @@ uniform int uAllShapesMatType;
 // demo/scene-specific setup
 #define N_QUADS 6
 
-struct Ray { vec3 origin; vec3 direction; };
 struct Quad { vec3 normal; vec3 v0; vec3 v1; vec3 v2; vec3 v3; vec3 color; int type; };
-struct Intersection { float t; vec3 normal; vec3 color; int type; float objectID; };
 
 Quad quads[N_QUADS];
+
+// the camera ray for this pixel (global variables)
+vec3 rayOrigin, rayDirection;
+
 
 // all required includes go here:
 
@@ -71,255 +73,261 @@ Quad quads[N_QUADS];
 #include<pathtracing_sample_axis_aligned_quad_light> // required on scenes with axis-aligned quad area lights (quad must reside in either XY, XZ, or YZ planes) 
 
 
-//----------------------------------------------------------
-void SceneIntersect( Ray r, out Intersection intersection )
-//----------------------------------------------------------
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void SceneIntersect( vec3 rayOrigin, vec3 rayDirection, out float hitT, out vec3 hitNormal, out vec3 hitEmission, out vec3 hitColor, out int hitType, out float hitObjectID )
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 {
-	r.direction = normalize(r.direction);
+	//rayDirection = normalize(rayDirection);
 
+	vec3 rObjOrigin, rObjDirection;
 	vec3 hit, n;
 	float d;
 	int objectCount = 0;
-	// initialize intersection fields
-	intersection.t = INFINITY;
-	intersection.type = -100;
-	intersection.objectID = -INFINITY;
-	Ray rObj;
 
-
+	// initialize hit record 
+	hitT = INFINITY;
+	hitType = -100;
+	hitObjectID = -INFINITY;
+	
+	
         // transform ray into sphere's object space
-	rObj.origin = vec3( uSphereInvMatrix * vec4(r.origin, 1.0) );
-	rObj.direction = vec3( uSphereInvMatrix * vec4(r.direction, 0.0) );
-	// rObj.direction = normalize(rObj.direction);
-	d = UnitSphereIntersect( rObj.origin, rObj.direction, n );
-	// hit = rObj.origin + rObj.direction * d;
+	rObjOrigin = vec3( uSphereInvMatrix * vec4(rayOrigin, 1.0) );
+	rObjDirection = vec3( uSphereInvMatrix * vec4(rayDirection, 0.0) );
+	// rObjDirection = normalize(rObjDirection);
+	d = UnitSphereIntersect( rObjOrigin, rObjDirection, n );
+	// hit = rObjOrigin + rObjDirection * d;
 	// hit = vec3( inverse(uSphereInvMatrix) * vec4(hit, 1.0) );
-	// d = distance(r.origin, hit);
+	// d = distance(rayOrigin, hit);
 
-	if (d < intersection.t)
+	if (d < hitT)
 	{
-		intersection.t = d;
-		intersection.normal = normalize(n);
-		intersection.normal = normalize(transpose(mat3(uSphereInvMatrix)) * intersection.normal);
-		intersection.color = vec3(1.0, 0.0, 0.0);
-		intersection.type = uAllShapesMatType;
-		intersection.objectID = float(objectCount);
+		hitT = d;
+		hitNormal = normalize(n);
+		hitNormal = normalize(transpose(mat3(uSphereInvMatrix)) * hitNormal);
+		hitColor = vec3(1.0, 0.0, 0.0);
+		hitType = uAllShapesMatType;
+		hitObjectID = float(objectCount);
 	}
 	objectCount++;
 
 	// transform ray into cylinder's object space
-	rObj.origin = vec3( uCylinderInvMatrix * vec4(r.origin, 1.0) );
-	rObj.direction = vec3( uCylinderInvMatrix * vec4(r.direction, 0.0) );
+	rObjOrigin = vec3( uCylinderInvMatrix * vec4(rayOrigin, 1.0) );
+	rObjDirection = vec3( uCylinderInvMatrix * vec4(rayDirection, 0.0) );
 
-	d = UnitCylinderIntersect( rObj.origin, rObj.direction, n );
+	d = UnitCylinderIntersect( rObjOrigin, rObjDirection, n );
 
-	if (d < intersection.t)
+	if (d < hitT)
 	{
-		intersection.t = d;
-		intersection.normal = normalize(n);
-		intersection.normal = normalize(transpose(mat3(uCylinderInvMatrix)) * intersection.normal);
-		intersection.color = vec3(0.0, 1.0, 0.0);
-		intersection.type = uAllShapesMatType;
-		intersection.objectID = float(objectCount);
+		hitT = d;
+		hitNormal = normalize(n);
+		hitNormal = normalize(transpose(mat3(uCylinderInvMatrix)) * hitNormal);
+		hitColor = vec3(0.0, 1.0, 0.0);
+		hitType = uAllShapesMatType;
+		hitObjectID = float(objectCount);
 	}
 	objectCount++;
 
 	// transform ray into cone's object space
-	rObj.origin = vec3( uConeInvMatrix * vec4(r.origin, 1.0) );
-	rObj.direction = vec3( uConeInvMatrix * vec4(r.direction, 0.0) );
+	rObjOrigin = vec3( uConeInvMatrix * vec4(rayOrigin, 1.0) );
+	rObjDirection = vec3( uConeInvMatrix * vec4(rayDirection, 0.0) );
 
-	d = UnitConeIntersect( rObj.origin, rObj.direction, uShapeK, n );
+	d = UnitConeIntersect( rObjOrigin, rObjDirection, uShapeK, n );
 
-	if (d < intersection.t)
+	if (d < hitT)
 	{
-		intersection.t = d;
-		intersection.normal = normalize(n);
-		intersection.normal = normalize(transpose(mat3(uConeInvMatrix)) * intersection.normal);
-		intersection.color = vec3(1.0, 1.0, 0.0);
-		intersection.type = uAllShapesMatType;
-		intersection.objectID = float(objectCount);
+		hitT = d;
+		hitNormal = normalize(n);
+		hitNormal = normalize(transpose(mat3(uConeInvMatrix)) * hitNormal);
+		hitColor = vec3(1.0, 1.0, 0.0);
+		hitType = uAllShapesMatType;
+		hitObjectID = float(objectCount);
 	}
 	objectCount++;
 
 	// transform ray into paraboloid's object space
-	rObj.origin = vec3( uParaboloidInvMatrix * vec4(r.origin, 1.0) );
-	rObj.direction = vec3( uParaboloidInvMatrix * vec4(r.direction, 0.0) );
+	rObjOrigin = vec3( uParaboloidInvMatrix * vec4(rayOrigin, 1.0) );
+	rObjDirection = vec3( uParaboloidInvMatrix * vec4(rayDirection, 0.0) );
 
-	d = UnitParaboloidIntersect( rObj.origin, rObj.direction, n );
+	d = UnitParaboloidIntersect( rObjOrigin, rObjDirection, n );
 
-	if (d < intersection.t)
+	if (d < hitT)
 	{
-		intersection.t = d;
-		intersection.normal = normalize(n);
-		intersection.normal = normalize(transpose(mat3(uParaboloidInvMatrix)) * intersection.normal);
-		intersection.color = vec3(1.0, 0.0, 1.0);
-		intersection.type = uAllShapesMatType;
-		intersection.objectID = float(objectCount);
+		hitT = d;
+		hitNormal = normalize(n);
+		hitNormal = normalize(transpose(mat3(uParaboloidInvMatrix)) * hitNormal);
+		hitColor = vec3(1.0, 0.0, 1.0);
+		hitType = uAllShapesMatType;
+		hitObjectID = float(objectCount);
 	}
 	objectCount++;
 
 	// transform ray into hyperboloid's object space
-	rObj.origin = vec3( uHyperboloidInvMatrix * vec4(r.origin, 1.0) );
-	rObj.direction = vec3( uHyperboloidInvMatrix * vec4(r.direction, 0.0) );
+	rObjOrigin = vec3( uHyperboloidInvMatrix * vec4(rayOrigin, 1.0) );
+	rObjDirection = vec3( uHyperboloidInvMatrix * vec4(rayDirection, 0.0) );
 
-	d = UnitHyperboloidIntersect( rObj.origin, rObj.direction, uShapeK, n );
+	d = UnitHyperboloidIntersect( rObjOrigin, rObjDirection, uShapeK, n );
 
-	if (d < intersection.t)
+	if (d < hitT)
 	{
-		intersection.t = d;
-		intersection.normal = normalize(n);
-		intersection.normal = normalize(transpose(mat3(uHyperboloidInvMatrix)) * intersection.normal);
-		intersection.color = vec3(1.0, 0.1, 0.0);
-		intersection.type = uAllShapesMatType;
-		intersection.objectID = float(objectCount);
+		hitT = d;
+		hitNormal = normalize(n);
+		hitNormal = normalize(transpose(mat3(uHyperboloidInvMatrix)) * hitNormal);
+		hitColor = vec3(1.0, 0.1, 0.0);
+		hitType = uAllShapesMatType;
+		hitObjectID = float(objectCount);
 	}
 	objectCount++;
 
 	// transform ray into capsule's object space
-	rObj.origin = vec3( uCapsuleInvMatrix * vec4(r.origin, 1.0) );
-	rObj.direction = vec3( uCapsuleInvMatrix * vec4(r.direction, 0.0) );
+	rObjOrigin = vec3( uCapsuleInvMatrix * vec4(rayOrigin, 1.0) );
+	rObjDirection = vec3( uCapsuleInvMatrix * vec4(rayDirection, 0.0) );
 
-	d = UnitCapsuleIntersect( rObj.origin, rObj.direction, uShapeK, n );
+	d = UnitCapsuleIntersect( rObjOrigin, rObjDirection, uShapeK, n );
 
-	if (d < intersection.t)
+	if (d < hitT)
 	{
-		intersection.t = d;
-		intersection.normal = normalize(n);
-		intersection.normal = normalize(transpose(mat3(uCapsuleInvMatrix)) * intersection.normal);
-		intersection.color = vec3(0.5, 1.0, 0.0);
-		intersection.type = uAllShapesMatType;
-		intersection.objectID = float(objectCount);
+		hitT = d;
+		hitNormal = normalize(n);
+		hitNormal = normalize(transpose(mat3(uCapsuleInvMatrix)) * hitNormal);
+		hitColor = vec3(0.5, 1.0, 0.0);
+		hitType = uAllShapesMatType;
+		hitObjectID = float(objectCount);
 	}
 	objectCount++;
 
 	// transform ray into flattened ring's object space
-	rObj.origin = vec3( uFlattenedRingInvMatrix * vec4(r.origin, 1.0) );
-	rObj.direction = vec3( uFlattenedRingInvMatrix * vec4(r.direction, 0.0) );
+	rObjOrigin = vec3( uFlattenedRingInvMatrix * vec4(rayOrigin, 1.0) );
+	rObjDirection = vec3( uFlattenedRingInvMatrix * vec4(rayDirection, 0.0) );
 
-	d = UnitFlattenedRingIntersect( rObj.origin, rObj.direction, uShapeK, n );
+	d = UnitFlattenedRingIntersect( rObjOrigin, rObjDirection, uShapeK, n );
 
-	if (d < intersection.t)
+	if (d < hitT)
 	{
-		intersection.t = d;
-		intersection.normal = normalize(n);
-		intersection.normal = normalize(transpose(mat3(uFlattenedRingInvMatrix)) * intersection.normal);
-		intersection.color = vec3(0.0, 0.4, 1.0);
-		intersection.type = uAllShapesMatType;
-		intersection.objectID = float(objectCount);
+		hitT = d;
+		hitNormal = normalize(n);
+		hitNormal = normalize(transpose(mat3(uFlattenedRingInvMatrix)) * hitNormal);
+		hitColor = vec3(0.0, 0.4, 1.0);
+		hitType = uAllShapesMatType;
+		hitObjectID = float(objectCount);
 	}
 	objectCount++;
 
 	// transform ray into box's object space
-	rObj.origin = vec3( uBoxInvMatrix * vec4(r.origin, 1.0) );
-	rObj.direction = vec3( uBoxInvMatrix * vec4(r.direction, 0.0) );
+	rObjOrigin = vec3( uBoxInvMatrix * vec4(rayOrigin, 1.0) );
+	rObjDirection = vec3( uBoxInvMatrix * vec4(rayDirection, 0.0) );
 
-	d = UnitBoxIntersect( rObj.origin, rObj.direction, n );
+	d = UnitBoxIntersect( rObjOrigin, rObjDirection, n );
 
-	if (d < intersection.t)
+	if (d < hitT)
 	{
-		intersection.t = d;
-		intersection.normal = normalize(n);
-		intersection.normal = normalize(transpose(mat3(uBoxInvMatrix)) * intersection.normal);
-		intersection.color = vec3(0.0, 0.0, 1.0);
-		intersection.type = uAllShapesMatType;
-		intersection.objectID = float(objectCount);
+		hitT = d;
+		hitNormal = normalize(n);
+		hitNormal = normalize(transpose(mat3(uBoxInvMatrix)) * hitNormal);
+		hitColor = vec3(0.0, 0.0, 1.0);
+		hitType = uAllShapesMatType;
+		hitObjectID = float(objectCount);
 	}
 	objectCount++;
 
 	// transform ray into pyramid/frustum's object space
-	rObj.origin = vec3( uPyramidFrustumInvMatrix * vec4(r.origin, 1.0) );
-	rObj.direction = vec3( uPyramidFrustumInvMatrix * vec4(r.direction, 0.0) );
+	rObjOrigin = vec3( uPyramidFrustumInvMatrix * vec4(rayOrigin, 1.0) );
+	rObjDirection = vec3( uPyramidFrustumInvMatrix * vec4(rayDirection, 0.0) );
 
-	d = PyramidFrustumIntersect( rObj.origin, rObj.direction, uShapeK, n );
+	d = PyramidFrustumIntersect( rObjOrigin, rObjDirection, uShapeK, n );
 
-	if (d < intersection.t)
+	if (d < hitT)
 	{
-		intersection.t = d;
-		intersection.normal = normalize(n);
-		intersection.normal = normalize(transpose(mat3(uPyramidFrustumInvMatrix)) * intersection.normal);
-		intersection.color = vec3(0.2, 0.0, 1.0);
-		intersection.type = uAllShapesMatType;
-		intersection.objectID = float(objectCount);
+		hitT = d;
+		hitNormal = normalize(n);
+		hitNormal = normalize(transpose(mat3(uPyramidFrustumInvMatrix)) * hitNormal);
+		hitColor = vec3(0.2, 0.0, 1.0);
+		hitType = uAllShapesMatType;
+		hitObjectID = float(objectCount);
 	}
 	objectCount++;
 
 	// transform ray into disk's object space
-	rObj.origin = vec3( uDiskInvMatrix * vec4(r.origin, 1.0) );
-	rObj.direction = vec3( uDiskInvMatrix * vec4(r.direction, 0.0) );
+	rObjOrigin = vec3( uDiskInvMatrix * vec4(rayOrigin, 1.0) );
+	rObjDirection = vec3( uDiskInvMatrix * vec4(rayDirection, 0.0) );
 
-	d = UnitDiskIntersect( rObj.origin, rObj.direction );
+	d = UnitDiskIntersect( rObjOrigin, rObjDirection );
 
-	if (d < intersection.t)
+	if (d < hitT)
 	{
-		intersection.t = d;
-		intersection.normal = vec3(0,-1,0);
-		intersection.normal = normalize(transpose(mat3(uDiskInvMatrix)) * intersection.normal);
-		intersection.color = vec3(0.0, 1.0, 0.5);
-		intersection.type = uAllShapesMatType;
-		intersection.objectID = float(objectCount);
+		hitT = d;
+		hitNormal = vec3(0,-1,0);
+		hitNormal = normalize(transpose(mat3(uDiskInvMatrix)) * hitNormal);
+		hitColor = vec3(0.0, 1.0, 0.5);
+		hitType = uAllShapesMatType;
+		hitObjectID = float(objectCount);
 	}
 	objectCount++;
 
 	// transform ray into rectangle's object space
-	rObj.origin = vec3( uRectangleInvMatrix * vec4(r.origin, 1.0) );
-	rObj.direction = vec3( uRectangleInvMatrix * vec4(r.direction, 0.0) );
+	rObjOrigin = vec3( uRectangleInvMatrix * vec4(rayOrigin, 1.0) );
+	rObjDirection = vec3( uRectangleInvMatrix * vec4(rayDirection, 0.0) );
 
-	d = UnitRectangleIntersect( rObj.origin, rObj.direction );
+	d = UnitRectangleIntersect( rObjOrigin, rObjDirection );
 
-	if (d < intersection.t)
+	if (d < hitT)
 	{
-		intersection.t = d;
-		intersection.normal = vec3(0,-1,0);
-		intersection.normal = normalize(transpose(mat3(uRectangleInvMatrix)) * intersection.normal);
-		intersection.color = vec3(1.0, 0.3, 0.0);
-		intersection.type = uAllShapesMatType;
-		intersection.objectID = float(objectCount);
+		hitT = d;
+		hitNormal = vec3(0,-1,0);
+		hitNormal = normalize(transpose(mat3(uRectangleInvMatrix)) * hitNormal);
+		hitColor = vec3(1.0, 0.3, 0.0);
+		hitType = uAllShapesMatType;
+		hitObjectID = float(objectCount);
 	}
 	objectCount++;
 
 	// transform ray into torus's object space
-	rObj.origin = vec3( uTorusInvMatrix * vec4(r.origin, 1.0) );
-	rObj.direction = vec3( uTorusInvMatrix * vec4(r.direction, 0.0) );
+	rObjOrigin = vec3( uTorusInvMatrix * vec4(rayOrigin, 1.0) );
+	rObjDirection = vec3( uTorusInvMatrix * vec4(rayDirection, 0.0) );
 
-	d = UnitTorusIntersect( rObj.origin, rObj.direction, uShapeK, n );
+	d = UnitTorusIntersect( rObjOrigin, rObjDirection, uShapeK, n );
 	
-	if (d < intersection.t)
+	if (d < hitT)
 	{
-		intersection.t = d;
-		intersection.normal = normalize(n);
-		intersection.normal = normalize(transpose(mat3(uTorusInvMatrix)) * intersection.normal);
-		intersection.color = vec3(0.5, 0.0, 1.0);
-		intersection.type = uAllShapesMatType;
-		intersection.objectID = float(objectCount);
+		hitT = d;
+		hitNormal = normalize(n);
+		hitNormal = normalize(transpose(mat3(uTorusInvMatrix)) * hitNormal);
+		hitColor = vec3(0.5, 0.0, 1.0);
+		hitType = uAllShapesMatType;
+		hitObjectID = float(objectCount);
 	}
 	objectCount++;
 
         
 	for (int i = 0; i < N_QUADS; i++)
         {
-		d = QuadIntersect( quads[i].v0, quads[i].v1, quads[i].v2, quads[i].v3, r, false );
+		d = QuadIntersect( quads[i].v0, quads[i].v1, quads[i].v2, quads[i].v3, rayOrigin, rayDirection, false );
 
-		if (d < intersection.t)
+		if (d < hitT)
 		{
-			intersection.t = d;
-			intersection.normal = normalize(quads[i].normal);
-			intersection.color = quads[i].color;
-			intersection.type = quads[i].type;
-			intersection.objectID = float(objectCount);
+			hitT = d;
+			hitNormal = normalize(quads[i].normal);
+			hitColor = quads[i].color;
+			hitType = quads[i].type;
+			hitObjectID = float(objectCount);
 		}
 
 		objectCount++;
         }
 
-} // end void SceneIntersect( Ray r, out Intersection intersection )
+} // end void SceneIntersect( vec3 rayOrigin, vec3 rayDirection, out float hitT, out vec3 hitNormal, out vec3 hitEmission, out vec3 hitColor, out int hitType, out float hitObjectID )
 
 
 
 //-----------------------------------------------------------------------------------------------------------------------------
-vec3 CalculateRadiance( Ray r, out vec3 objectNormal, out vec3 objectColor, out float objectID, out float pixelSharpness )
+vec3 CalculateRadiance( out vec3 objectNormal, out vec3 objectColor, out float objectID, out float pixelSharpness )
 //-----------------------------------------------------------------------------------------------------------------------------
 {
-	Intersection intersection; // this struct will hold a record of ray-surface intersection data
+	// a record of ray-surface intersection data
+	vec3 hitNormal, hitEmission, hitColor;
+	vec2 hitUV;
+	float hitT, hitObjectID;
+	int hitTextureID;
+	int hitType;
 
 	Quad light = quads[5];
 
@@ -338,7 +346,7 @@ vec3 CalculateRadiance( Ray r, out vec3 objectNormal, out vec3 objectColor, out 
 
 	int diffuseCount = 0;
 	int previousIntersecType = -100;
-	intersection.type = -100;
+	hitType = -100;
 
 	bool coatTypeIntersected = false;
 	bool bounceIsSpecular = true;
@@ -347,44 +355,44 @@ vec3 CalculateRadiance( Ray r, out vec3 objectNormal, out vec3 objectColor, out 
 
 	for (int bounces = 0; bounces < 6; bounces++)
 	{
-		previousIntersecType = intersection.type;
+		previousIntersecType = hitType;
 
-		SceneIntersect(r, intersection);
+		SceneIntersect(rayOrigin, rayDirection, hitT, hitNormal, hitEmission, hitColor, hitType, hitObjectID);
 
 
-		if (intersection.t == INFINITY)
+		if (hitT == INFINITY)
 			break;
 
 		// useful data
-		n = normalize(intersection.normal);
-                nl = dot(n, r.direction) < 0.0 ? normalize(n) : normalize(-n);
-		x = r.origin + r.direction * intersection.t;
+		n = normalize(hitNormal);
+                nl = dot(n, rayDirection) < 0.0 ? normalize(n) : normalize(-n);
+		x = rayOrigin + rayDirection * hitT;
 		
 		if (bounces == 0)
 		{
 			objectNormal = nl;
-			objectColor = intersection.color;
-			objectID = intersection.objectID;
+			objectColor = hitColor;
+			objectID = hitObjectID;
 		}
 		if (bounces == 1 && previousIntersecType == METAL)
 		{
 			objectNormal = nl;
-			objectID = intersection.objectID;
+			objectID = hitObjectID;
 		}
 
 
-		if (intersection.type == LIGHT)
+		if (hitType == LIGHT)
 		{
 			if (diffuseCount == 0)
 				pixelSharpness = 1.01;
 
 			if (bounceIsSpecular || sampleLight)
-				accumCol = mask * intersection.color;
+				accumCol = mask * hitColor;
 
 			// reached a light, so we can exit
 			break;
 
-		} // end if (intersection.type == LIGHT)
+		} // end if (hitType == LIGHT)
 
 
 		// if we get here and sampleLight is still true, shadow ray failed to find a light source
@@ -393,45 +401,46 @@ vec3 CalculateRadiance( Ray r, out vec3 objectNormal, out vec3 objectColor, out 
 
 
 
-                if (intersection.type == DIFFUSE) // Ideal diffuse reflection
+                if (hitType == DIFFUSE) // Ideal diffuse reflection
 		{
 			diffuseCount++;
 
-			mask *= intersection.color;
+			mask *= hitColor;
 
 			bounceIsSpecular = false;
 
 			if (diffuseCount == 1 && blueNoise_rand() < 0.5)
 			{
-				r = Ray( x, randomCosWeightedDirectionInHemisphere(nl) );
-				r.origin += nl * uEPS_intersect;
+				// choose random Diffuse sample vector
+				rayDirection = randomCosWeightedDirectionInHemisphere(nl);
+				rayOrigin = x + nl * uEPS_intersect;
 				continue;
 			}
 
 			dirToLight = sampleAxisAlignedQuadLight(x, nl, quads[5], weight);
 			mask *= weight;
 
-			r = Ray( x, dirToLight );
-			r.origin += nl * uEPS_intersect;
+			rayDirection = dirToLight;
+			rayOrigin = x + nl * uEPS_intersect;
 
 			sampleLight = true;
 			continue;
 
-		} // end if (intersection.type == DIFFUSE)
+		} // end if (hitType == DIFFUSE)
 
 
-		if (intersection.type == METAL)  // Ideal metal specular reflection
+		if (hitType == METAL)  // Ideal metal specular reflection
 		{
-			mask *= intersection.color;
+			mask *= hitColor;
 
-			r = Ray( x, reflect(r.direction, nl) );
-			r.origin += nl * uEPS_intersect;
+			rayDirection = reflect(rayDirection, nl);
+			rayOrigin = x + nl * uEPS_intersect;
 
 			continue;
 		}
 
 
-		if (intersection.type == TRANSPARENT)  // Ideal dielectric specular reflection/refraction
+		if (hitType == TRANSPARENT)  // Ideal dielectric specular reflection/refraction
 		{
 			if (diffuseCount == 0 && !coatTypeIntersected && !uCameraIsMoving )
 				pixelSharpness = 1.01;
@@ -442,7 +451,7 @@ vec3 CalculateRadiance( Ray r, out vec3 objectNormal, out vec3 objectColor, out 
 			
 			nc = 1.0; // IOR of Air
 			nt = 1.5; // IOR of common Glass
-			Re = calcFresnelReflectance(r.direction, n, nc, nt, ratioIoR);
+			Re = calcFresnelReflectance(rayDirection, n, nc, nt, ratioIoR);
 			Tr = 1.0 - Re;
 			P  = 0.25 + (0.5 * Re);
                 	RP = Re / P;
@@ -451,29 +460,29 @@ vec3 CalculateRadiance( Ray r, out vec3 objectNormal, out vec3 objectColor, out 
 			if (blueNoise_rand() < P)
 			{
 				mask *= RP;
-				r = Ray( x, reflect(r.direction, nl) ); // reflect ray from surface
-				r.origin += nl * uEPS_intersect;
+				rayDirection = reflect(rayDirection, nl); // reflect ray from surface
+				rayOrigin = x + nl * uEPS_intersect;
 				continue;
 			}
 
 			// transmit ray through surface
 
 			mask *= TP;
-			mask *= intersection.color;
+			mask *= hitColor;
 
-			tdir = refract(r.direction, nl, ratioIoR);
-			r = Ray(x, tdir);
-			r.origin -= nl * uEPS_intersect;
+			tdir = refract(rayDirection, nl, ratioIoR);
+			rayDirection = tdir;
+			rayOrigin = x - nl * uEPS_intersect;
 
 			if (diffuseCount == 1)
 				bounceIsSpecular = true; // turn on refracting caustics
 
 			continue;
 
-		} // end if (intersection.type == TRANSPARENT)
+		} // end if (hitType == TRANSPARENT)
 
 
-		if (intersection.type == CLEARCOAT_DIFFUSE)  // Diffuse object underneath with ClearCoat on top
+		if (hitType == CLEARCOAT_DIFFUSE)  // Diffuse object underneath with ClearCoat on top
 		{
 			coatTypeIntersected = true;
 
@@ -481,7 +490,7 @@ vec3 CalculateRadiance( Ray r, out vec3 objectNormal, out vec3 objectColor, out 
 
 			nc = 1.0; // IOR of Air
 			nt = 1.4; // IOR of Clear Coat
-			Re = calcFresnelReflectance(r.direction, nl, nc, nt, ratioIoR);
+			Re = calcFresnelReflectance(rayDirection, nl, nc, nt, ratioIoR);
 			Tr = 1.0 - Re;
 			P  = 0.25 + (0.5 * Re);
                 	RP = Re / P;
@@ -493,49 +502,49 @@ vec3 CalculateRadiance( Ray r, out vec3 objectNormal, out vec3 objectColor, out 
 					pixelSharpness = uFrameCounter > 500.0 ? 1.01 : -1.0;
 
 				mask *= RP;
-				r = Ray( x, reflect(r.direction, nl) ); // reflect ray from surface
-				r.origin += nl * uEPS_intersect;
+				rayDirection = reflect(rayDirection, nl); // reflect ray from surface
+				rayOrigin = x + nl * uEPS_intersect;
 				continue;
 			}
 
 			diffuseCount++;
 			mask *= TP;
-			mask *= intersection.color;
+			mask *= hitColor;
 
 			bounceIsSpecular = false;
 
 			if (diffuseCount == 1 && blueNoise_rand() < 0.5)
 			{
 				// choose random Diffuse sample vector
-				r = Ray( x, randomCosWeightedDirectionInHemisphere(nl) );
-				r.origin += nl * uEPS_intersect;
+				rayDirection = randomCosWeightedDirectionInHemisphere(nl);
+				rayOrigin = x + nl * uEPS_intersect;
 				continue;
 			}
 
 			dirToLight = sampleAxisAlignedQuadLight(x, nl, quads[5], weight);
 			mask *= weight;
 
-			r = Ray( x, dirToLight );
-			r.origin += nl * uEPS_intersect;
+			rayDirection = dirToLight;
+			rayOrigin = x + nl * uEPS_intersect;
 
 			// this check helps keep random noisy bright pixels from this clearCoat diffuse surface out of the possible previous refracted glass surface
 			if (bounces < 3) 
 				sampleLight = true;
 			continue;
 
-		} //end if (intersection.type == CLEARCOAT_DIFFUSE)
+		} //end if (hitType == CLEARCOAT_DIFFUSE)
 
 	} // end for (int bounces = 0; bounces < 6; bounces++)
 
 
 	return max(vec3(0), accumCol);
 
-} // end vec3 CalculateRadiance( Ray r, out vec3 objectNormal, out vec3 objectColor, out float objectID, out float pixelSharpness )
+} // end vec3 CalculateRadiance( out vec3 objectNormal, out vec3 objectColor, out float objectID, out float pixelSharpness )
 
 
-//-------------------
+//-----------------------------------------------------------------------------------------------
 void SetupScene(void)
-//-------------------
+//-----------------------------------------------------------------------------------------------
 {
 	vec3 light_emissionColor = vec3(1.0, 1.0, 1.0) * 10.0; // Bright white light
 	float wallRadius = 50.0;
