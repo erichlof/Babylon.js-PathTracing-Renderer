@@ -35,13 +35,15 @@ uniform bool uModelUsesEmissiveTexture;
 #define N_QUADS 6
 #define N_SPHERES 2
 
-struct Ray { vec3 origin; vec3 direction; };
 struct UnitSphere { vec3 color; int type; };
 struct Quad { vec3 normal; vec3 v0; vec3 v1; vec3 v2; vec3 v3; vec3 color; int type; };
-struct Intersection { float t; vec3 normal; vec3 color; vec2 uv; int type; float objectID; };
 
 Quad quads[N_QUADS];
 UnitSphere spheres[N_SPHERES];
+
+// the camera ray for this pixel (global variables)
+vec3 rayOrigin, rayDirection;
+
 
 // all required includes go here:
 
@@ -69,7 +71,7 @@ UnitSphere spheres[N_SPHERES];
 
 vec3 perturbNormal(vec3 nl, vec2 normalScale, vec2 uv)
 {
-        vec3 S = normalize( cross( abs(nl.y) < 0.9 ? vec3(0, 1, 0) : vec3(0, 0, 1), nl ) );
+        vec3 S = normalize( cross( abs(nl.y) < 0.9 ? vec3(0, 1, 0) : vec3(1, 0, 0), nl ) );
         vec3 T = cross(nl, S);
         vec3 N = normalize( nl );
 	// invert S, T when the UV direction is backwards (from mirrored faces),
@@ -92,37 +94,36 @@ vec3 perturbNormal(vec3 nl, vec2 normalScale, vec2 uv)
 
 vec2 stackLevels[28];
 
-struct BoxNode
-{
-	vec4 data0; // corresponds to .x: idTriangle, .y: aabbMin.x, .z: aabbMin.y, .w: aabbMin.z
-	vec4 data1; // corresponds to .x: idRightChild .y: aabbMax.x, .z: aabbMax.y, .w: aabbMax.z
-};
+//vec4 boxNodeData0 corresponds to .x = idTriangle,  .y = aabbMin.x, .z = aabbMin.y, .w = aabbMin.z
+//vec4 boxNodeData1 corresponds to .x = idRightChild .y = aabbMax.x, .z = aabbMax.y, .w = aabbMax.z
 
-BoxNode GetBoxNode(const in float i)
+void GetBoxNodeData(const in float i, inout vec4 boxNodeData0, inout vec4 boxNodeData1)
 {
 	// each bounding box's data is encoded in 2 rgba(or xyzw) texture slots 
-	float iX2 = (i * 2.0);
-	// (iX2 + 0.0) corresponds to .x: idTriangle, .y: aabbMin.x, .z: aabbMin.y, .w: aabbMin.z 
-	// (iX2 + 1.0) corresponds to .x: idRightChild .y: aabbMax.x, .z: aabbMax.y, .w: aabbMax.z 
+	float ix2 = i * 2.0;
+	// (ix2 + 0.0) corresponds to .x = idTriangle,  .y = aabbMin.x, .z = aabbMin.y, .w = aabbMin.z 
+	// (ix2 + 1.0) corresponds to .x = idRightChild .y = aabbMax.x, .z = aabbMax.y, .w = aabbMax.z 
 
-	ivec2 uv0 = ivec2( mod(iX2 + 0.0, 2048.0), (iX2 + 0.0) * INV_TEXTURE_WIDTH ); // data0
-	ivec2 uv1 = ivec2( mod(iX2 + 1.0, 2048.0), (iX2 + 1.0) * INV_TEXTURE_WIDTH ); // data1
+	ivec2 uv0 = ivec2( mod(ix2 + 0.0, 2048.0), (ix2 + 0.0) * INV_TEXTURE_WIDTH ); // data0
+	ivec2 uv1 = ivec2( mod(ix2 + 1.0, 2048.0), (ix2 + 1.0) * INV_TEXTURE_WIDTH ); // data1
 	
-	return BoxNode( texelFetch(tAABBTexture, uv0, 0), texelFetch(tAABBTexture, uv1, 0) );
+	boxNodeData0 = texelFetch(tAABBTexture, uv0, 0);
+	boxNodeData1 = texelFetch(tAABBTexture, uv1, 0);
 }
 
 
-//-----------------------------------------------------------
-void SceneIntersect( Ray r, out Intersection intersection )
-//-----------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void SceneIntersect( vec3 rayOrigin, vec3 rayDirection, out float hitT, out vec3 hitNormal, out vec3 hitEmission, out vec3 hitColor, out vec2 hitUV, out int hitType, out float hitObjectID )
+//-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 {
-	BoxNode currentBoxNode, nodeA, nodeB, tmpNode;
-	vec4 aabbNodeData;
+	vec4 currentBoxNodeData0, nodeAData0, nodeBData0, tmpNodeData0;
+	vec4 currentBoxNodeData1, nodeAData1, nodeBData1, tmpNodeData1;
+
 	vec4 vd0, vd1, vd2, vd3, vd4, vd5, vd6, vd7;
 
-	vec3 aabbMin, aabbMax;
-	vec3 inverseDir = 1.0 / r.direction;
+	vec3 inverseDir;// = 1.0 / rayDirection; // will be calculated later, after ray has been transformed to glTF model's object space
 	vec3 hit, n;
+	vec3 rObjOrigin, rObjDirection;
 
 	vec2 currentStackData, stackDataA, stackDataB, tmpStackData;
 	ivec2 uv0, uv1, uv2, uv3, uv4, uv5, uv6, uv7;
@@ -142,71 +143,70 @@ void SceneIntersect( Ray r, out Intersection intersection )
 	bool skip = false;
 	bool triangleLookupNeeded = false;
 	
-	// initialize intersection fields
-	intersection.t = INFINITY;
-	intersection.type = -100;
-	intersection.objectID = -INFINITY;
-	Ray rObj;
+	// initialize hit record 
+	hitT = INFINITY;
+	hitType = -100;
+	hitObjectID = -INFINITY;
 
         // transform ray into Left Sphere's object space
-	rObj.origin = vec3( uLeftSphereInvMatrix * vec4(r.origin, 1.0) );
-	rObj.direction = vec3( uLeftSphereInvMatrix * vec4(r.direction, 0.0) );
+	rObjOrigin = vec3( uLeftSphereInvMatrix * vec4(rayOrigin, 1.0) );
+	rObjDirection = vec3( uLeftSphereInvMatrix * vec4(rayDirection, 0.0) );
 
-	d = UnitSphereIntersect( rObj.origin, rObj.direction, n );
+	d = UnitSphereIntersect( rObjOrigin, rObjDirection, n );
 
-	if (d < intersection.t)
+	if (d < hitT)
 	{
-		intersection.t = d;
-		intersection.normal = normalize(n);
-		intersection.normal = normalize(transpose(mat3(uLeftSphereInvMatrix)) * intersection.normal);
-		intersection.color = spheres[0].color;
-		intersection.type = spheres[0].type;
-		intersection.objectID = float(objectCount);
+		hitT = d;
+		hitNormal = normalize(n);
+		hitNormal = normalize(transpose(mat3(uLeftSphereInvMatrix)) * hitNormal);
+		hitColor = spheres[0].color;
+		hitType = spheres[0].type;
+		hitObjectID = float(objectCount);
 	}
 	objectCount++;
 
 	// transform ray into Right Sphere's object space
-	rObj.origin = vec3( uRightSphereInvMatrix * vec4(r.origin, 1.0) );
-	rObj.direction = vec3( uRightSphereInvMatrix * vec4(r.direction, 0.0) );
+	rObjOrigin = vec3( uRightSphereInvMatrix * vec4(rayOrigin, 1.0) );
+	rObjDirection = vec3( uRightSphereInvMatrix * vec4(rayDirection, 0.0) );
 
-	d = UnitSphereIntersect( rObj.origin, rObj.direction, n );
+	d = UnitSphereIntersect( rObjOrigin, rObjDirection, n );
 
-	if (d < intersection.t)
+	if (d < hitT)
 	{
-		intersection.t = d;
-		intersection.normal = normalize(n);
-		intersection.normal = normalize(transpose(mat3(uRightSphereInvMatrix)) * intersection.normal);
-		intersection.color = spheres[1].color;
-		intersection.type = spheres[1].type;
-		intersection.objectID = float(objectCount);
+		hitT = d;
+		hitNormal = normalize(n);
+		hitNormal = normalize(transpose(mat3(uRightSphereInvMatrix)) * hitNormal);
+		hitColor = spheres[1].color;
+		hitType = spheres[1].type;
+		hitObjectID = float(objectCount);
 	}
 	objectCount++;
         
 	for (int i = 0; i < N_QUADS; i++)
         {
-		d = QuadIntersect( quads[i].v0, quads[i].v1, quads[i].v2, quads[i].v3, r, false );
+		d = QuadIntersect( quads[i].v0, quads[i].v1, quads[i].v2, quads[i].v3, rayOrigin, rayDirection, false );
 
-		if (d < intersection.t)
+		if (d < hitT)
 		{
-			intersection.t = d;
-			intersection.normal = normalize(quads[i].normal);
-			intersection.color = quads[i].color;
-			intersection.type = quads[i].type;
-			intersection.objectID = float(objectCount);
+			hitT = d;
+			hitNormal = normalize(quads[i].normal);
+			hitColor = quads[i].color;
+			hitType = quads[i].type;
+			hitObjectID = float(objectCount);
 		}
 
 		objectCount++;
         }
 
 	// transform ray into GLTF_Model's object space
-	r.origin = vec3( uGLTF_Model_InvMatrix * vec4(r.origin, 1.0) );
-	r.direction = vec3( uGLTF_Model_InvMatrix * vec4(r.direction, 0.0) );
-	inverseDir = 1.0 / r.direction; // inverse direction must now be re-calculated
+	rayOrigin = vec3( uGLTF_Model_InvMatrix * vec4(rayOrigin, 1.0) );
+	rayDirection = vec3( uGLTF_Model_InvMatrix * vec4(rayDirection, 0.0) );
+	inverseDir = 1.0 / rayDirection; // inverseDir must be re-calculated, now that we are in model's object space
 
-	currentBoxNode = GetBoxNode(stackptr);
-	currentStackData = vec2(stackptr, BoundingBoxIntersect(currentBoxNode.data0.yzw, currentBoxNode.data1.yzw, r.origin, inverseDir));
+	GetBoxNodeData(stackptr, currentBoxNodeData0, currentBoxNodeData1);
+	currentStackData = vec2(stackptr, BoundingBoxIntersect(currentBoxNodeData0.yzw, currentBoxNodeData1.yzw, rayOrigin, inverseDir));
 	stackLevels[0] = currentStackData;
-	skip = (currentStackData.y < intersection.t);
+	skip = (currentStackData.y < hitT);
 
 	while (true)
         {
@@ -218,20 +218,20 @@ void SceneIntersect( Ray r, out Intersection intersection )
 
                         currentStackData = stackLevels[int(stackptr)];
 			
-			if (currentStackData.y >= intersection.t)
+			if (currentStackData.y >= hitT)
 				continue;
 			
-			currentBoxNode = GetBoxNode(currentStackData.x);
+			GetBoxNodeData(currentStackData.x, currentBoxNodeData0, currentBoxNodeData1);
                 }
 		skip = false; // reset skip
 		
 
-		if (currentBoxNode.data0.x < 0.0) // < 0.0 signifies an inner node
+		if (currentBoxNodeData0.x < 0.0) // < 0.0 signifies an inner node
 		{
-			nodeA = GetBoxNode(currentStackData.x + 1.0);
-			nodeB = GetBoxNode(currentBoxNode.data1.x);
-			stackDataA = vec2(currentStackData.x + 1.0, BoundingBoxIntersect(nodeA.data0.yzw, nodeA.data1.yzw, r.origin, inverseDir));
-			stackDataB = vec2(currentBoxNode.data1.x, BoundingBoxIntersect(nodeB.data0.yzw, nodeB.data1.yzw, r.origin, inverseDir));
+			GetBoxNodeData(currentStackData.x + 1.0, nodeAData0, nodeAData1);
+			GetBoxNodeData(currentBoxNodeData1.x, nodeBData0, nodeBData1);
+			stackDataA = vec2(currentStackData.x + 1.0, BoundingBoxIntersect(nodeAData0.yzw, nodeAData1.yzw, rayOrigin, inverseDir));
+			stackDataB = vec2(currentBoxNodeData1.x, BoundingBoxIntersect(nodeBData0.yzw, nodeBData1.yzw, rayOrigin, inverseDir));
 			
 			// first sort the branch node data so that 'a' is the smallest
 			if (stackDataB.y < stackDataA.y)
@@ -240,36 +240,38 @@ void SceneIntersect( Ray r, out Intersection intersection )
 				stackDataB = stackDataA;
 				stackDataA = tmpStackData;
 
-				tmpNode = nodeB;
-				nodeB = nodeA;
-				nodeA = tmpNode;
+				tmpNodeData0 = nodeBData0;   tmpNodeData1 = nodeBData1;
+				nodeBData0   = nodeAData0;   nodeBData1   = nodeAData1;
+				nodeAData0   = tmpNodeData0; nodeAData1   = tmpNodeData1;
 			} // branch 'b' now has the larger rayT value of 'a' and 'b'
 
-			if (stackDataB.y < intersection.t) // see if branch 'b' (the larger rayT) needs to be processed
+			if (stackDataB.y < hitT) // see if branch 'b' (the larger rayT) needs to be processed
 			{
 				currentStackData = stackDataB;
-				currentBoxNode = nodeB;
+				currentBoxNodeData0 = nodeBData0;
+				currentBoxNodeData1 = nodeBData1;
 				skip = true; // this will prevent the stackptr from decreasing by 1
 			}
-			if (stackDataA.y < intersection.t) // see if branch 'a' (the smaller rayT) needs to be processed 
+			if (stackDataA.y < hitT) // see if branch 'a' (the smaller rayT) needs to be processed 
 			{
 				if (skip) // if larger branch 'b' needed to be processed also,
 					stackLevels[int(stackptr++)] = stackDataB; // cue larger branch 'b' for future round
 							// also, increase pointer by 1
 				
 				currentStackData = stackDataA;
-				currentBoxNode = nodeA;
+				currentBoxNodeData0 = nodeAData0; 
+				currentBoxNodeData1 = nodeAData1;
 				skip = true; // this will prevent the stackptr from decreasing by 1
 			}
 
 			continue;
-		} // end if (currentBoxNode.data0.x < 0.0) // inner node
+		} // end if (currentBoxNodeData0.x < 0.0) // inner node
 
 
 		// else this is a leaf
 
 		// each triangle's data is encoded in 8 rgba(or xyzw) texture slots
-		id = 8.0 * currentBoxNode.data0.x;
+		id = 8.0 * currentBoxNodeData0.x;
 
 		uv0 = ivec2( mod(id + 0.0, 2048.0), (id + 0.0) * INV_TEXTURE_WIDTH );
 		uv1 = ivec2( mod(id + 1.0, 2048.0), (id + 1.0) * INV_TEXTURE_WIDTH );
@@ -280,13 +282,13 @@ void SceneIntersect( Ray r, out Intersection intersection )
 		vd2 = texelFetch(tTriangleTexture, uv2, 0);
 
 		if (!uModelUsesAlbedoTexture && uModelMaterialType == TRANSPARENT)
-			d = BVH_DoubleSidedTriangleIntersect( vec3(vd0.xyz), vec3(vd0.w, vd1.xy), vec3(vd1.zw, vd2.x), r, tu, tv );
+			d = BVH_DoubleSidedTriangleIntersect( vec3(vd0.xyz), vec3(vd0.w, vd1.xy), vec3(vd1.zw, vd2.x), rayOrigin, rayDirection, tu, tv );
 		else
-			d = BVH_TriangleIntersect( vec3(vd0.xyz), vec3(vd0.w, vd1.xy), vec3(vd1.zw, vd2.x), r, tu, tv );
+			d = BVH_TriangleIntersect( vec3(vd0.xyz), vec3(vd0.w, vd1.xy), vec3(vd1.zw, vd2.x), rayOrigin, rayDirection, tu, tv );
 
-		if (d < intersection.t)
+		if (d < hitT)
 		{
-			intersection.t = d;
+			hitT = d;
 			triangleID = id;
 			triangleU = tu;
 			triangleV = tv;
@@ -320,38 +322,42 @@ void SceneIntersect( Ray r, out Intersection intersection )
 		vd7 = texelFetch(tTriangleTexture, uv7, 0); // rgba: (reserved for future PBR material extra properties)
 
 		// face normal for flat-shaded polygon look
-		//intersection.normal = normalize( cross(vec3(vd0.w, vd1.xy) - vec3(vd0.xyz), vec3(vd1.zw, vd2.x) - vec3(vd0.xyz)) );
+		//hitNormal = normalize( cross(vec3(vd0.w, vd1.xy) - vec3(vd0.xyz), vec3(vd1.zw, vd2.x) - vec3(vd0.xyz)) );
 		
 		// interpolated normal using triangle intersection's uv's
 		triangleW = 1.0 - triangleU - triangleV;
 		n = normalize(triangleW * vec3(vd2.yzw) + triangleU * vec3(vd3.xyz) + triangleV * vec3(vd3.w, vd4.xy));
-		intersection.uv = triangleW * vec2(vd4.zw) + triangleU * vec2(vd5.xy) + triangleV * vec2(vd5.zw);
-		n = uModelUsesBumpTexture ? perturbNormal(n, vec2(1.0, 1.0), intersection.uv) : n;
+		hitUV = triangleW * vec2(vd4.zw) + triangleU * vec2(vd5.xy) + triangleV * vec2(vd5.zw);
+		n = uModelUsesBumpTexture ? perturbNormal(n, vec2(1.0, 1.0), hitUV) : n;
 		// transform normal back into world space
-		intersection.normal = normalize(transpose(mat3(uGLTF_Model_InvMatrix)) * n);
+		hitNormal = normalize(transpose(mat3(uGLTF_Model_InvMatrix)) * n);
 
-		//intersection.type = int(vd6.x);
-		intersection.type = uModelUsesAlbedoTexture ? PBR_MATERIAL : uModelMaterialType;
+		//hitType = int(vd6.x);
+		hitType = uModelUsesAlbedoTexture ? PBR_MATERIAL : uModelMaterialType;
 
-		intersection.color = vec3(1);//vd6.yzw;
-
-		//intersection.albedoTextureID = int(vd7.x);
-		//intersection.albedoTextureID = -1;
+		hitColor = vec3(1);//vd6.yzw;
 		
-		intersection.objectID = float(objectCount);
+		//hitTextureID = int(vd7.x);
+		//hitTextureID = -1;
+		
+		hitObjectID = float(objectCount);
 	} // if (triangleLookupNeeded)
 
-} // end void SceneIntersect( Ray r, out Intersection intersection )
+} // end void SceneIntersect( vec3 rayOrigin, vec3 rayDirection, out float hitT, out vec3 hitNormal, out vec3 hitEmission, out vec3 hitColor, out vec2 hitUV, out int hitType, out float hitObjectID )
 
 
 
 //-----------------------------------------------------------------------------------------------------------------------------
-vec3 CalculateRadiance( Ray r, out vec3 objectNormal, out vec3 objectColor, out float objectID, out float pixelSharpness )
+vec3 CalculateRadiance( out vec3 objectNormal, out vec3 objectColor, out float objectID, out float pixelSharpness )
 //-----------------------------------------------------------------------------------------------------------------------------
 {
-	Intersection intersection; // this struct will hold a record of ray-surface intersection data
-
 	Quad light = quads[5];
+
+	// recorded intersection data:
+	vec3 hitNormal, hitEmission, hitColor;
+	vec2 hitUV;
+	float hitT, hitObjectID;
+	int hitType, hitTextureID;
 
 	vec3 accumCol = vec3(0);
         vec3 mask = vec3(1);
@@ -371,7 +377,7 @@ vec3 CalculateRadiance( Ray r, out vec3 objectNormal, out vec3 objectColor, out 
 
 	int diffuseCount = 0;
 	int previousIntersecType = -100;
-	intersection.type = -100;
+	hitType = -100;
 
 	bool coatTypeIntersected = false;
 	bool bounceIsSpecular = true;
@@ -380,44 +386,44 @@ vec3 CalculateRadiance( Ray r, out vec3 objectNormal, out vec3 objectColor, out 
 
 	for (int bounces = 0; bounces < 6; bounces++)
 	{
-		previousIntersecType = intersection.type;
+		previousIntersecType = hitType;
 
-		SceneIntersect(r, intersection);
+		SceneIntersect(rayOrigin, rayDirection, hitT, hitNormal, hitEmission, hitColor, hitUV, hitType, hitObjectID);
 
 
-		if (intersection.t == INFINITY)
+		if (hitT == INFINITY)
 			break;
 
 		// useful data
-		n = normalize(intersection.normal);
-                nl = dot(n, r.direction) < 0.0 ? normalize(n) : normalize(-n);
-		x = r.origin + r.direction * intersection.t;
+		n = normalize(hitNormal);
+                nl = dot(n, rayDirection) < 0.0 ? normalize(n) : normalize(-n);
+		x = rayOrigin + rayDirection * hitT;
 
 		if (bounces == 0)
 		{
 			objectNormal = nl;
-			objectColor = intersection.color;
-			objectID = intersection.objectID;
+			objectColor = hitColor;
+			objectID = hitObjectID;
 		}
 		if (bounces == 1 && previousIntersecType == METAL)
 		{
 			objectNormal = nl;
-			objectID = intersection.objectID;
+			objectID = hitObjectID;
 		}
 
 
-		if (intersection.type == LIGHT)
+		if (hitType == LIGHT)
 		{
 			if (diffuseCount == 0)
 				pixelSharpness = 1.01;
 
 			if (bounceIsSpecular || sampleLight)
-				accumCol = mask * intersection.color;
+				accumCol = mask * hitColor;
 
 			// reached a light, so we can exit
 			break;
 
-		} // end if (intersection.type == LIGHT)
+		} // end if (hitType == LIGHT)
 
 
 		// if we get here and sampleLight is still true, shadow ray failed to find a light source
@@ -425,12 +431,12 @@ vec3 CalculateRadiance( Ray r, out vec3 objectNormal, out vec3 objectColor, out 
 			break;
 
 
-		if (intersection.type == PBR_MATERIAL)
+		if (hitType == PBR_MATERIAL)
 		{
-			intersection.color = texture(tAlbedoTexture, intersection.uv).rgb;
-			intersection.color = pow(intersection.color, vec3(2.2));
+			hitColor = texture(tAlbedoTexture, hitUV).rgb;
+			hitColor = pow(hitColor, vec3(2.2));
 			
-			emission = uModelUsesEmissiveTexture ? texture(tEmissiveTexture, intersection.uv).rgb : vec3(0);
+			emission = uModelUsesEmissiveTexture ? texture(tEmissiveTexture, hitUV).rgb : vec3(0);
 			emission = pow(emission, vec3(2.2));
 			maxEmission = max(emission.r, max(emission.g, emission.b));
 			if (bounceIsSpecular && maxEmission > 0.01)
@@ -440,61 +446,61 @@ vec3 CalculateRadiance( Ray r, out vec3 objectNormal, out vec3 objectColor, out 
 				break;
 			}
 
-			intersection.type = DIFFUSE;
+			hitType = DIFFUSE;
 			
-			metallicRoughness = uModelUsesMetallicTexture ? texture(tMetallicTexture, intersection.uv).rgb : vec3(0);
+			metallicRoughness = uModelUsesMetallicTexture ? texture(tMetallicTexture, hitUV).rgb : vec3(0);
 			metallicRoughness = pow(metallicRoughness, vec3(2.2));
 			if (metallicRoughness.g > 0.01) // roughness
 			{
-				intersection.type = CLEARCOAT_DIFFUSE;
+				hitType = CLEARCOAT_DIFFUSE;
 			}	
 			if (metallicRoughness.b > 0.01) // metalness
 			{
-				intersection.type = METAL;
+				hitType = METAL;
 			}
 				
 		}
 
-                if (intersection.type == DIFFUSE) // Ideal diffuse reflection
+                if (hitType == DIFFUSE) // Ideal diffuse reflection
 		{
 			diffuseCount++;
 
-			mask *= intersection.color;
+			mask *= hitColor;
 
 			bounceIsSpecular = false;
 
 			if (diffuseCount == 1 && blueNoise_rand() < 0.5)
 			{
-				r = Ray( x, randomCosWeightedDirectionInHemisphere(nl) );
-				r.origin += nl * uEPS_intersect;
+				// choose random Diffuse sample vector
+				rayDirection = randomCosWeightedDirectionInHemisphere(nl);
+				rayOrigin = x + nl * uEPS_intersect;
 				continue;
 			}
 
 			dirToLight = sampleAxisAlignedQuadLight(x, nl, quads[5], weight);
 			mask *= weight;
 
-			r = Ray( x, dirToLight );
-			r.origin += nl * uEPS_intersect;
+			rayDirection = dirToLight;
+			rayOrigin = x + nl * uEPS_intersect;
 
 			sampleLight = true;
 			continue;
 
-		} // end if (intersection.type == DIFFUSE)
+		} // end if (hitType == DIFFUSE)
 
 
-		if (intersection.type == METAL)  // Ideal metal specular reflection
+		if (hitType == METAL)  // Ideal metal specular reflection
 		{
-			mask *= intersection.color;
+			mask *= hitColor;
 
-			//r = Ray( x, reflect(r.direction, nl) );
-			r = Ray( x, randomDirectionInSpecularLobe(reflect(r.direction, nl), metallicRoughness.g) );
-			r.origin += nl * uEPS_intersect;
+			rayDirection = randomDirectionInSpecularLobe(reflect(rayDirection, nl), metallicRoughness.g);
+			rayOrigin = x + nl * uEPS_intersect;
 
 			continue;
 		}
 
 
-		if (intersection.type == TRANSPARENT)  // Ideal dielectric specular reflection/refraction
+		if (hitType == TRANSPARENT)  // Ideal dielectric specular reflection/refraction
 		{
 			if (diffuseCount == 0 && !coatTypeIntersected && !uCameraIsMoving )
 				pixelSharpness = 1.01;
@@ -505,7 +511,7 @@ vec3 CalculateRadiance( Ray r, out vec3 objectNormal, out vec3 objectColor, out 
 			
 			nc = 1.0; // IOR of Air
 			nt = 1.5; // IOR of common Glass
-			Re = calcFresnelReflectance(r.direction, n, nc, nt, ratioIoR);
+			Re = calcFresnelReflectance(rayDirection, n, nc, nt, ratioIoR);
 			Tr = 1.0 - Re;
 			P  = 0.25 + (0.5 * Re);
                 	RP = Re / P;
@@ -514,8 +520,8 @@ vec3 CalculateRadiance( Ray r, out vec3 objectNormal, out vec3 objectColor, out 
 			if (blueNoise_rand() < P)
 			{
 				mask *= RP;
-				r = Ray( x, reflect(r.direction, nl) ); // reflect ray from surface
-				r.origin += nl * uEPS_intersect;
+				rayDirection = reflect(rayDirection, nl); // reflect ray from surface
+				rayOrigin = x + nl * uEPS_intersect;
 				continue;
 			}
 
@@ -526,24 +532,24 @@ vec3 CalculateRadiance( Ray r, out vec3 objectNormal, out vec3 objectColor, out 
 			if (distance(n, nl) > 0.1)
 			{
 				thickness = 0.01;
-				mask *= exp( log(clamp(intersection.color, 0.01, 0.99)) * thickness * intersection.t );
+				mask *= exp( log(clamp(hitColor, 0.01, 0.99)) * thickness * hitT );
 			}
 
 			mask *= TP;
 
-			tdir = refract(r.direction, nl, ratioIoR);
-			r = Ray(x, tdir);
-			r.origin -= nl * uEPS_intersect;
+			tdir = refract(rayDirection, nl, ratioIoR);
+			rayDirection = tdir;
+			rayOrigin = x - nl * uEPS_intersect;
 
 			if (diffuseCount == 1)
 				bounceIsSpecular = true; // turn on refracting caustics
 
 			continue;
 
-		} // end if (intersection.type == TRANSPARENT)
+		} // end if (hitType == TRANSPARENT)
 
 
-		if (intersection.type == CLEARCOAT_DIFFUSE)  // Diffuse object underneath with ClearCoat on top
+		if (hitType == CLEARCOAT_DIFFUSE)  // Diffuse object underneath with ClearCoat on top
 		{
 			coatTypeIntersected = true;
 
@@ -551,7 +557,7 @@ vec3 CalculateRadiance( Ray r, out vec3 objectNormal, out vec3 objectColor, out 
 
 			nc = 1.0; // IOR of Air
 			nt = 1.4; // IOR of Clear Coat
-			Re = calcFresnelReflectance(r.direction, nl, nc, nt, ratioIoR);
+			Re = calcFresnelReflectance(rayDirection, nl, nc, nt, ratioIoR);
 			Tr = 1.0 - Re;
 			P  = 0.25 + (0.5 * Re);
                 	RP = Re / P;
@@ -563,49 +569,49 @@ vec3 CalculateRadiance( Ray r, out vec3 objectNormal, out vec3 objectColor, out 
 					pixelSharpness = uFrameCounter > 500.0 ? 1.01 : -1.0;
 
 				mask *= RP;
-				r = Ray( x, reflect(r.direction, nl) ); // reflect ray from surface
-				r.origin += nl * uEPS_intersect;
+				rayDirection = reflect(rayDirection, nl); // reflect ray from surface
+				rayOrigin = x + nl * uEPS_intersect;
 				continue;
 			}
 
 			diffuseCount++;
 			mask *= TP;
-			mask *= intersection.color;
+			mask *= hitColor;
 
 			bounceIsSpecular = false;
 
 			if (diffuseCount == 1 && blueNoise_rand() < 0.5)
 			{
 				// choose random Diffuse sample vector
-				r = Ray( x, randomCosWeightedDirectionInHemisphere(nl) );
-				r.origin += nl * uEPS_intersect;
+				rayDirection = randomCosWeightedDirectionInHemisphere(nl);
+				rayOrigin = x + nl * uEPS_intersect;
 				continue;
 			}
 
 			dirToLight = sampleAxisAlignedQuadLight(x, nl, quads[5], weight);
 			mask *= weight;
 
-			r = Ray( x, dirToLight );
-			r.origin += nl * uEPS_intersect;
+			rayDirection = dirToLight;
+			rayOrigin = x + nl * uEPS_intersect;
 
 			// this check helps keep random noisy bright pixels from this clearCoat diffuse surface out of the possible previous refracted glass surface
 			if (bounces < 3) 
 				sampleLight = true;
 			continue;
 
-		} //end if (intersection.type == CLEARCOAT_DIFFUSE)
+		} //end if (hitType == CLEARCOAT_DIFFUSE)
 
 	} // end for (int bounces = 0; bounces < 6; bounces++)
 
 
 	return max(vec3(0), accumCol);
 
-} // end vec3 CalculateRadiance( Ray r, out vec3 objectNormal, out vec3 objectColor, out float objectID, out float pixelSharpness )
+} // end vec3 CalculateRadiance( out vec3 objectNormal, out vec3 objectColor, out float objectID, out float pixelSharpness )
 
 
-//-------------------
+//--------------------------------------------------------------------------------------------------
 void SetupScene(void)
-//-------------------
+//--------------------------------------------------------------------------------------------------
 {
 	vec3 light_emissionColor = vec3(1.0, 1.0, 1.0) * 10.0; // Bright white light
 
