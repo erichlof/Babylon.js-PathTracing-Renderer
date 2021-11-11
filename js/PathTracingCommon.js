@@ -365,7 +365,6 @@ uniform float uSampleCounter;
 uniform float uEPS_intersect;
 uniform float uApertureSize;
 uniform float uFocusDistance;
-uniform float uSunAngularDiameterCos;
 uniform bool uCameraIsMoving;
 
 `;
@@ -394,7 +393,7 @@ BABYLON.Effect.IncludesShadersStore['pathtracing_physical_sky_defines'] = `
 #define UP_VECTOR vec3(0.0, 1.0, 0.0)
 #define SUN_POWER 200.0
 // 66 arc seconds -> degrees, and the cosine of that
-//#define SUN_ANGULAR_DIAMETER_COS 0.9998 //0.9999566769
+#define SUN_ANGULAR_DIAMETER_COS 0.9998 //0.9999566769
 #define CUTOFF_ANGLE 1.6110731556870734
 #define STEEPNESS 1.5
 
@@ -428,37 +427,37 @@ float SunIntensity(float zenithAngleCos)
 	return SUN_POWER * max( 0.0, 1.0 - pow( E, -( ( CUTOFF_ANGLE - acos( zenithAngleCos ) ) / STEEPNESS ) ) );
 }
 
-vec3 Get_Sky_Color(Ray r, vec3 sunDirection)
+vec3 Get_Sky_Color(vec3 rayDir)
 {
-	vec3 viewDirection = normalize(r.direction);
-	
+	vec3 viewDirection = normalize(rayDir);
+
 	/* most of the following code is borrowed from the three.js shader file: SkyShader.js */
     	// Cosine angles
-	float cosViewSunAngle = dot(viewDirection, normalize(sunDirection));
-    	float cosSunUpAngle = dot(UP_VECTOR, normalize(sunDirection)); // allowed to be negative: + is daytime, - is nighttime
+	float cosViewSunAngle = dot(viewDirection, uSunDirection);
+    	float cosSunUpAngle = dot(UP_VECTOR, uSunDirection); // allowed to be negative: + is daytime, - is nighttime
     	float cosUpViewAngle = dot(UP_VECTOR, viewDirection);
-	
+
         // Get sun intensity based on how high in the sky it is
     	float sunE = SunIntensity(cosSunUpAngle);
-        
+
 	// extinction (absorbtion + out scattering)
 	// rayleigh coefficients
     	vec3 rayleighAtX = TOTAL_RAYLEIGH * RAYLEIGH_COEFFICIENT;
-    
+
 	// mie coefficients
-	vec3 mieAtX = totalMie() * MIE_COEFFICIENT;  
-    
+	vec3 mieAtX = totalMie() * MIE_COEFFICIENT;
+
 	// optical length
 	float zenithAngle = acos( max( 0.0, dot( UP_VECTOR, viewDirection ) ) );
 	float inverse = 1.0 / ( cos( zenithAngle ) + 0.15 * pow( 93.885 - ( ( zenithAngle * 180.0 ) / PI ), -1.253 ) );
 	float rayleighOpticalLength = RAYLEIGH_ZENITH_LENGTH * inverse;
 	float mieOpticalLength = MIE_ZENITH_LENGTH * inverse;
-	// combined extinction factor	
+	// combined extinction factor
 	vec3 Fex = exp(-(rayleighAtX * rayleighOpticalLength + mieAtX * mieOpticalLength));
 	// in scattering
 	vec3 betaRTheta = rayleighAtX * RayleighPhase(cosViewSunAngle * 0.5 + 0.5);
 	vec3 betaMTheta = mieAtX * hgPhase(cosViewSunAngle, MIE_DIRECTIONAL_G);
-	
+
 	vec3 Lin = pow( sunE * ( ( betaRTheta + betaMTheta ) / ( rayleighAtX + mieAtX ) ) * ( 1.0 - Fex ), vec3( 1.5 ) );
 	Lin *= mix( vec3( 1.0 ), pow( sunE * ( ( betaRTheta + betaMTheta ) / ( rayleighAtX + mieAtX ) ) * Fex, vec3( 1.0 / 2.0 ) ), clamp( pow( 1.0 - cosSunUpAngle, 5.0 ), 0.0, 1.0 ) );
 	// nightsky
@@ -467,10 +466,10 @@ vec3 Get_Sky_Color(Ray r, vec3 sunDirection)
 	vec2 uv = vec2( phi, theta ) / vec2( 2.0 * PI, PI ) + vec2( 0.5, 0.0 );
 	vec3 L0 = vec3( 0.1 ) * Fex;
 	// composition + solar disc
-	float sundisk = smoothstep( uSunAngularDiameterCos, uSunAngularDiameterCos + 0.00002, cosViewSunAngle );
+	float sundisk = smoothstep( SUN_ANGULAR_DIAMETER_COS, SUN_ANGULAR_DIAMETER_COS + 0.00002, cosViewSunAngle );
 	L0 += ( sunE * 19000.0 * Fex ) * sundisk;
 	vec3 texColor = ( Lin + L0 ) * 0.04 + vec3( 0.0, 0.0003, 0.00075 );
-	float sunfade = 1.0 - clamp( 1.0 - exp( ( sunDirection.y / 450000.0 ) ), 0.0, 1.0 );
+	float sunfade = 1.0 - clamp( 1.0 - exp( ( uSunDirection.y / 450000.0 ) ), 0.0, 1.0 );
 	vec3 retColor = pow( texColor, vec3( 1.0 / ( 1.2 + ( 1.2 * sunfade ) ) ) );
 	return retColor;
 }
@@ -524,7 +523,8 @@ vec3 randomCosWeightedDirectionInHemisphere(vec3 nl) // required for all diffuse
 	float y = r * sin(phi);
 	float z = sqrt(1.0 - x*x - y*y);
 	
-	vec3 U = normalize( cross(vec3(0.7071067811865475, 0.7071067811865475, 0), nl ) );
+	//vec3 U = normalize( cross(vec3(0.7071067811865475, 0.7071067811865475, 0), nl ) );
+        vec3 U = normalize( cross( abs(nl.y) < 0.9 ? vec3(0, 1, 0) : vec3(1, 0, 0), nl ) );
 	vec3 V = cross(nl, U);
 	return normalize(x * U + y * V + z * nl);
 }
@@ -537,7 +537,7 @@ vec3 randomDirectionInSpecularLobe(vec3 reflectionDir, float roughness) // for m
 	float sinTheta = sqrt(max(0.0, 1.0 - cosTheta * cosTheta));
 	float phi = rng() * TWO_PI;
 	
-	vec3 U = normalize( cross(vec3(0.7071067811865475, 0.7071067811865475, 0), reflectionDir ) );
+	vec3 U = normalize( cross( abs(reflectionDir.y) < 0.9 ? vec3(0, 1, 0) : vec3(1, 0, 0), reflectionDir ) );
 	vec3 V = cross(reflectionDir, U);
 	return normalize(mix(reflectionDir, (U * cos(phi) * sinTheta + V * sin(phi) * sinTheta + reflectionDir * cosTheta), roughness));
 }
@@ -612,7 +612,7 @@ vec3 sampleSphereLight(vec3 x, vec3 nl, Sphere light, out float weight) // requi
 	float phi = rng() * TWO_PI;
 	dirToLight = normalize(dirToLight);
 	
-	vec3 U = normalize( cross(vec3(0.7071067811865475, 0.7071067811865475, 0), dirToLight ) );
+	vec3 U = normalize( cross( abs(dirToLight.y) < 0.9 ? vec3(0, 1, 0) : vec3(1, 0, 0), dirToLight ) );
 	vec3 V = cross(dirToLight, U);
 	
 	vec3 sampleDir = normalize(U * cos(phi) * sin_alpha + V * sin(phi) * sin_alpha + dirToLight * cos_alpha);
@@ -645,13 +645,13 @@ void solveQuadratic(float A, float B, float C, out float t0, out float t1) // re
 
 BABYLON.Effect.IncludesShadersStore[ 'pathtracing_sphere_intersect' ] = `
 
-float SphereIntersect( float rad, vec3 pos, Ray ray )
+float SphereIntersect( float rad, vec3 pos, vec3 rayOrigin, vec3 rayDirection )
 {
 	float t0, t1;
-	vec3 L = ray.origin - pos;
-	float a = dot( ray.direction, ray.direction );
-	float b = 2.0 * dot( ray.direction, L );
-	float c = dot( L, L ) - (rad * rad);
+	vec3 L = rayOrigin - pos;
+	float a = dot(rayDirection, rayDirection );
+	float b = 2.0 * dot(rayDirection, L);
+	float c = dot(L, L) - (rad * rad);
 	solveQuadratic(a, b, c, t0, t1);
 	return t0 > 0.0 ? t0 : t1 > 0.0 ? t1 : INFINITY;
 }
@@ -1165,25 +1165,25 @@ float UnitTorusIntersect( vec3 ro, vec3 rd, float k, out vec3 n )
 
 BABYLON.Effect.IncludesShadersStore[ 'pathtracing_quad_intersect' ] = `
 
-float TriangleIntersect( vec3 v0, vec3 v1, vec3 v2, Ray r, bool isDoubleSided )
+float TriangleIntersect( vec3 v0, vec3 v1, vec3 v2, vec3 rayOrigin, vec3 rayDirection, bool isDoubleSided )
 {
 	vec3 edge1 = v1 - v0;
 	vec3 edge2 = v2 - v0;
-	vec3 pvec = cross(r.direction, edge2);
+	vec3 pvec = cross(rayDirection, edge2);
 	float det = 1.0 / dot(edge1, pvec);
 	if ( !isDoubleSided && det < 0.0 )
 		return INFINITY;
-	vec3 tvec = r.origin - v0;
+	vec3 tvec = rayOrigin - v0;
 	float u = dot(tvec, pvec) * det;
 	vec3 qvec = cross(tvec, edge1);
-	float v = dot(r.direction, qvec) * det;
+	float v = dot(rayDirection, qvec) * det;
 	float t = dot(edge2, qvec) * det;
 	return (u < 0.0 || u > 1.0 || v < 0.0 || u + v > 1.0 || t <= 0.0) ? INFINITY : t;
 }
 
-float QuadIntersect( vec3 v0, vec3 v1, vec3 v2, vec3 v3, Ray r, bool isDoubleSided )
+float QuadIntersect( vec3 v0, vec3 v1, vec3 v2, vec3 v3, vec3 rayOrigin, vec3 rayDirection, bool isDoubleSided )
 {
-	return min(TriangleIntersect(v0, v1, v2, r, isDoubleSided), TriangleIntersect(v0, v2, v3, r, isDoubleSided));
+	return min(TriangleIntersect(v0, v1, v2, rayOrigin, rayDirection, isDoubleSided), TriangleIntersect(v0, v2, v3, rayOrigin, rayDirection, isDoubleSided));
 }
 
 `;
@@ -1211,16 +1211,16 @@ float BoundingBoxIntersect( vec3 minCorner, vec3 maxCorner, vec3 rayOrigin, vec3
 
 BABYLON.Effect.IncludesShadersStore['pathtracing_bvhTriangle_intersect'] = `
 
-float BVH_TriangleIntersect( vec3 v0, vec3 v1, vec3 v2, Ray r, out float u, out float v )
+float BVH_TriangleIntersect( vec3 v0, vec3 v1, vec3 v2, vec3 rayOrigin, vec3 rayDirection, out float u, out float v )
 {
 	vec3 edge1 = v1 - v0;
 	vec3 edge2 = v2 - v0;
-	vec3 pvec = cross(r.direction, edge2);
+	vec3 pvec = cross(rayDirection, edge2);
 	float det = 1.0 / dot(edge1, pvec);
-	vec3 tvec = r.origin - v0;
+	vec3 tvec = rayOrigin - v0;
 	u = dot(tvec, pvec) * det;
 	vec3 qvec = cross(tvec, edge1);
-	v = dot(r.direction, qvec) * det;
+	v = dot(rayDirection, qvec) * det;
 	float t = dot(edge2, qvec) * det;
 	return (det < 0.0 || u < 0.0 || u > 1.0 || v < 0.0 || u + v > 1.0 || t <= 0.0) ? INFINITY : t;
 }
@@ -1230,16 +1230,16 @@ float BVH_TriangleIntersect( vec3 v0, vec3 v1, vec3 v2, Ray r, out float u, out 
 
 BABYLON.Effect.IncludesShadersStore['pathtracing_bvhDoubleSidedTriangle_intersect'] = `
 
-float BVH_DoubleSidedTriangleIntersect( vec3 v0, vec3 v1, vec3 v2, Ray r, out float u, out float v )
+float BVH_DoubleSidedTriangleIntersect( vec3 v0, vec3 v1, vec3 v2, vec3 rayOrigin, vec3 rayDirection, out float u, out float v )
 {
 	vec3 edge1 = v1 - v0;
 	vec3 edge2 = v2 - v0;
-	vec3 pvec = cross(r.direction, edge2);
+	vec3 pvec = cross(rayDirection, edge2);
 	float det = 1.0 / dot(edge1, pvec);
-	vec3 tvec = r.origin - v0;
+	vec3 tvec = rayOrigin - v0;
 	u = dot(tvec, pvec) * det;
 	vec3 qvec = cross(tvec, edge1);
-	v = dot(r.direction, qvec) * det;
+	v = dot(rayDirection, qvec) * det;
 	float t = dot(edge2, qvec) * det;
 	return (u < 0.0 || u > 1.0 || v < 0.0 || u + v > 1.0 || t <= 0.0) ? INFINITY : t;
 }
@@ -1288,7 +1288,8 @@ void main(void) // if the scene is static and doesn't have any special requireme
 	// point on aperture to focal point
 	vec3 finalRayDir = normalize(focalPoint - randomAperturePos);
 
-	Ray ray = Ray( cameraPosition + randomAperturePos , finalRayDir );
+	rayOrigin = cameraPosition + randomAperturePos;
+        rayDirection = finalRayDir;
 
 	SetupScene();
 
@@ -1300,7 +1301,7 @@ void main(void) // if the scene is static and doesn't have any special requireme
 	float pixelSharpness = 0.0;
 
 	// perform path tracing and get resulting pixel color
-	vec4 currentPixel = vec4( vec3(CalculateRadiance(ray, objectNormal, objectColor, objectID, pixelSharpness)), 0.0 );
+	vec4 currentPixel = vec4( vec3(CalculateRadiance(objectNormal, objectColor, objectID, pixelSharpness)), 0.0 );
 	// if difference between normals of neighboring pixels is less than the first edge0 threshold, the white edge line effect is considered off (0.0)
 	float edge0 = 0.2; // edge0 is the minimum difference required between normals of neighboring pixels to start becoming a white edge line
 	// any difference between normals of neighboring pixels that is between edge0 and edge1 smoothly ramps up the white edge line brightness (smoothstep 0.0-1.0)
