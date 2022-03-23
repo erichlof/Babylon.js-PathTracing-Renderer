@@ -23,9 +23,14 @@ precision highp float;
 precision highp int;
 precision highp sampler2D;
 
-uniform float uOneOverSampleCounter;
-uniform float uToneMappingExposure;
 uniform sampler2D accumulationBuffer;
+uniform float uSampleCounter;
+uniform float uOneOverSampleCounter;
+uniform float uPixelEdgeSharpness;
+uniform float uEdgeSharpenSpeed;
+uniform float uFilterDecaySpeed;
+uniform float uToneMappingExposure;
+uniform bool uSceneIsDynamic;
 
 out vec4 glFragColor;
 
@@ -225,7 +230,7 @@ void main(void)
         m9[7] = m25[17];
         m9[8] = m25[18];
 
-        if (centerPixel.a > 0.0 || centerPixel.a == -1.0)
+        if (centerPixel.a == -1.0)
         {
                 // reset variables
                 centerPixel = m9[4];
@@ -286,14 +291,33 @@ void main(void)
 
                 filteredPixelColor /= float(count);
 
-                filteredPixelColor = mix(filteredPixelColor, centerPixel.rgb, 0.5);
-        } // end if (centerPixel.a > 0.0)
+        } // end if (centerPixel.a == -1.0)
 
 
-        if ((centerPixel.a == 1.01 && uOneOverSampleCounter < 0.005) || uOneOverSampleCounter < 0.0002)
-        {
-                filteredPixelColor = centerPixel.rgb;
-        }
+        if ( !uSceneIsDynamic ) // static scene
+	{
+		// fast progressive convergence from filtered (blurred) pixels to their original sharp center pixel colors  
+		if (uSampleCounter > 1.0) // is camera still?
+		{
+			if (centerPixel.a == 1.01) // 1.01 means pixel is on an edge, must get sharper quickest
+				filteredPixelColor = mix(filteredPixelColor, centerPixel.rgb, clamp(uSampleCounter * uEdgeSharpenSpeed, 0.0, 1.0));
+			else if (centerPixel.a == -1.0) // -1.0 means glass / transparent surfaces, must get sharper fairly quickly
+				filteredPixelColor = mix(filteredPixelColor, centerPixel.rgb, clamp(uSampleCounter * 0.01, 0.0, 1.0));
+			else // else this is a diffuse surface, so we can take our time converging. That way, there will be minimal noise 
+				filteredPixelColor = mix(filteredPixelColor, centerPixel.rgb, clamp(uSampleCounter * uFilterDecaySpeed, 0.0, 1.0));
+		} // else camera is moving
+		else if (centerPixel.a == 1.01) // 1.01 means pixel is on an edge, must remain sharper
+		{
+			filteredPixelColor = mix(filteredPixelColor, centerPixel.rgb, 0.5);
+		}
+	}
+	else // scene is dynamic
+	{
+		if (centerPixel.a == 1.01) // 1.01 means pixel is on an edge, must remain sharper
+		{
+			filteredPixelColor = mix(filteredPixelColor, centerPixel.rgb, uPixelEdgeSharpness);
+		}
+	}
 
 
         // final filteredPixelColor processing ////////////////////////////////////
@@ -362,11 +386,11 @@ uniform float uVLen;
 uniform float uTime;
 uniform float uFrameCounter;
 uniform float uSampleCounter;
+uniform float uPreviousSampleCount;
 uniform float uEPS_intersect;
 uniform float uApertureSize;
 uniform float uFocusDistance;
 uniform bool uCameraIsMoving;
-
 `;
 
 
@@ -523,7 +547,6 @@ vec3 randomCosWeightedDirectionInHemisphere(vec3 nl) // required for all diffuse
 	float y = r * sin(phi);
 	float z = sqrt(1.0 - x*x - y*y);
 	
-	//vec3 U = normalize( cross(vec3(0.7071067811865475, 0.7071067811865475, 0), nl ) );
         vec3 U = normalize( cross( abs(nl.y) < 0.9 ? vec3(0, 1, 0) : vec3(1, 0, 0), nl ) );
 	vec3 V = cross(nl, U);
 	return normalize(x * U + y * V + z * nl);
@@ -1151,10 +1174,10 @@ float UnitTorusIntersect( vec3 ro, vec3 rd, float k, out vec3 n )
         if (abs(d) < 0.01)
         {
                 vec2 e = vec2(1.0,-1.0)*0.5773*0.0002;
-                n  = normalize( e.xyy*map_Torus( pos + e.xyy, k ) + 
-                                e.yyx*map_Torus( pos + e.yyx, k ) + 
-                                e.yxy*map_Torus( pos + e.yxy, k ) + 
-                                e.xxx*map_Torus( pos + e.xxx, k ) );
+                n = ( e.xyy*map_Torus( pos + e.xyy, k ) + 
+                      e.yyx*map_Torus( pos + e.yyx, k ) + 
+                      e.yxy*map_Torus( pos + e.yxy, k ) + 
+                      e.xxx*map_Torus( pos + e.xxx, k ) );
                 return t;
         }
         return INFINITY;
@@ -1272,8 +1295,10 @@ void main(void) // if the scene is static and doesn't have any special requireme
 	randVec4 = vec4(0); // on each animation frame, it samples and holds the RGBA blueNoise texture value for this pixel 
 	randVec4 = texelFetch(blueNoiseTexture, ivec2(mod(gl_FragCoord.xy + floor(uRandomVec2 * 256.0), 256.0)), 0);
 
-	//vec2 pixelOffset = vec2(0);
-	vec2 pixelOffset = vec2( tentFilter(rng()), tentFilter(rng()) );
+	// rand() produces higher FPS and almost immediate convergence, but may have very slight jagged diagonal edges on higher frequency color patterns, i.e. checkerboards.
+	// rng() has a little less FPS on mobile, and a little more noisy initially, but eventually converges on perfect anti-aliased edges - use this if 'beauty-render' is desired.
+	vec2 pixelOffset = uFrameCounter < 150.0 ? vec2( tentFilter(blueNoise_rand()), tentFilter(blueNoise_rand()) ) :
+					      	   vec2( tentFilter(rng()), tentFilter(rng()) );
 
 	// we must map pixelPos into the range -1.0 to +1.0
 	vec2 pixelPos = ((gl_FragCoord.xy + pixelOffset) / uResolution) * 2.0 - 1.0;
@@ -1324,36 +1349,40 @@ void main(void) // if the scene is static and doesn't have any special requireme
 	//currentPixel.rgb += 1.0 * vec3(colorDifference);
 	
 	vec4 previousPixel = texelFetch(previousBuffer, ivec2(gl_FragCoord.xy), 0);
+
 	if (uFrameCounter == 1.0) // camera just moved after being still
 	{
-		previousPixel = vec4(0); // clear rendering accumulation buffer
+		previousPixel.rgb *= (1.0 / uPreviousSampleCount) * 0.5; // essentially previousPixel *= 0.5, like below
+		previousPixel.a = 0.0;
+		currentPixel.rgb *= 0.5;
 	}
 	else if (uCameraIsMoving) // camera is currently moving
 	{
 		previousPixel.rgb *= 0.5; // motion-blur trail amount (old image)
-		currentPixel.rgb *= 0.5; // brightness of new image (noisy)
-
 		previousPixel.a = 0.0;
+		currentPixel.rgb *= 0.5; // brightness of new image (noisy)
 	}
-	
-	currentPixel.a = 0.0;
-	
+
+	// if current raytraced pixel didn't return any color value, just use the previous frame's pixel color
+	if (currentPixel.rgb == vec3(0.0))
+	{
+		currentPixel.rgb = previousPixel.rgb;
+		previousPixel.rgb *= 0.5;
+		currentPixel.rgb *= 0.5;
+	}
+
+
 	if (colorDifference >= 1.0 || normalDifference >= 1.0 || objectDifference >= 1.0)
 		pixelSharpness = 1.01;
 
-	
-	// Eventually, all edge-containing pixels' .a (alpha channel) values will converge to 1.01, which keeps them from getting blurred by the box-blur filter, thus retaining sharpness.
-	if (pixelSharpness == 1.01)
-		currentPixel.a = 1.01;
-	if (pixelSharpness == -1.0)
-		currentPixel.a = -1.0;
 
+	currentPixel.a = pixelSharpness;
+
+	// Eventually, all edge-containing pixels' .a (alpha channel) values will converge to 1.01, which keeps them from getting blurred by the box-blur filter, thus retaining sharpness.
 	if (previousPixel.a == 1.01)
 		currentPixel.a = 1.01;
 
-	if (previousPixel.a == -1.0)
-		currentPixel.a = 0.0;
-	
+
 	glFragColor = vec4(previousPixel.rgb + currentPixel.rgb, currentPixel.a);
 }
 
