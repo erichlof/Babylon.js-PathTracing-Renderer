@@ -6,15 +6,15 @@ Transformed Quadric Geometry demo: https://erichlof.github.io/Babylon.js-PathTra
 <br>
 
 <br>
-glTF Model Path Tracing demo: https://erichlof.github.io/Babylon.js-PathTracing-Renderer/GLTF_Model_Path_Tracing.html 
+glTF Model Path Tracing demo (temporarily broken, will fix very soon): https://erichlof.github.io/Babylon.js-PathTracing-Renderer/GLTF_Model_Path_Tracing.html 
 <br>
 
 <br>
-Physical Sky Model demo: https://erichlof.github.io/Babylon.js-PathTracing-Renderer/Physical_Sky_Model.html 
+Physical Sky Model demo (temporarily broken, will fix very soon): https://erichlof.github.io/Babylon.js-PathTracing-Renderer/Physical_Sky_Model.html 
 <br>
 
 <br>
-HDRI Environment demo: https://erichlof.github.io/Babylon.js-PathTracing-Renderer/HDRI_Environment_Path_Tracing.html 
+HDRI Environment demo (temporarily broken, will fix very soon): https://erichlof.github.io/Babylon.js-PathTracing-Renderer/HDRI_Environment_Path_Tracing.html 
 <br>
 
 <h3> Note: by request of Babylon.js users, this is a W.I.P. conversion from using three.js as the host engine to using Babylon.js as the host engine behind my custom path tracing shaders.</h3> 
