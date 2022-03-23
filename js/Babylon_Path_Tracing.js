@@ -10,7 +10,6 @@ let needChangeQuadLightRadius = false;
 let rightSphere_MaterialController, rightSphere_MaterialObject;
 let needChangeRightSphereMaterial = false;
 let isPaused = true;
-let uSceneIsDynamic = false;
 let camera, oldCameraMatrix, newCameraMatrix;
 let camFlightSpeed; // scene specific, depending on scene size dimensions
 let cameraRecentlyMoving = false;
@@ -41,6 +40,7 @@ cameraInfoElement.style.userSelect = "none";
 cameraInfoElement.style.MozUserSelect = "none";
 
 // common required uniforms
+let uSceneIsDynamic = false; // will any geometry, lights, or models be moving in the scene?
 let uRandomVec2 = new BABYLON.Vector2(); // used to offset the texture UV when sampling the blueNoiseTexture for smooth randomness - this vec2 is updated/changed every animation frame
 let uTime = 0.0; // elapsed time in seconds since the app started
 let uFrameCounter = 1.0; // 1 instead of 0 because it is used as a rng() seed in pathtracing shader
