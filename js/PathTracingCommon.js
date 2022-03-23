@@ -11,7 +11,7 @@ out vec4 glFragColor;
 
 void main(void)
 {
-        glFragColor = texelFetch(pathTracedImageBuffer, ivec2(gl_FragCoord.xy), 0);
+	glFragColor = texelFetch(pathTracedImageBuffer, ivec2(gl_FragCoord.xy), 0);
 }
 `;
 
@@ -44,257 +44,257 @@ vec3 ReinhardToneMapping(vec3 color)
 void main(void)
 {
 	// 5x5 kernel
-        vec4 m25[25];
+	vec4 m25[25];
 
-        m25[ 0] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2(-2, 2)), 0);
-        m25[ 1] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2(-1, 2)), 0);
-        m25[ 2] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2( 0, 2)), 0);
-        m25[ 3] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2( 1, 2)), 0);
-        m25[ 4] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2( 2, 2)), 0);
+	m25[ 0] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2(-2, 2)), 0);
+	m25[ 1] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2(-1, 2)), 0);
+	m25[ 2] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2( 0, 2)), 0);
+	m25[ 3] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2( 1, 2)), 0);
+	m25[ 4] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2( 2, 2)), 0);
 
-        m25[ 5] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2(-2, 1)), 0);
-        m25[ 6] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2(-1, 1)), 0);
-        m25[ 7] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2( 0, 1)), 0);
-        m25[ 8] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2( 1, 1)), 0);
-        m25[ 9] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2( 2, 1)), 0);
+	m25[ 5] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2(-2, 1)), 0);
+	m25[ 6] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2(-1, 1)), 0);
+	m25[ 7] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2( 0, 1)), 0);
+	m25[ 8] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2( 1, 1)), 0);
+	m25[ 9] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2( 2, 1)), 0);
 
-        m25[10] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2(-2, 0)), 0);
-        m25[11] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2(-1, 0)), 0);
-        m25[12] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2( 0, 0)), 0);
-        m25[13] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2( 1, 0)), 0);
-        m25[14] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2( 2, 0)), 0);
+	m25[10] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2(-2, 0)), 0);
+	m25[11] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2(-1, 0)), 0);
+	m25[12] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2( 0, 0)), 0);
+	m25[13] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2( 1, 0)), 0);
+	m25[14] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2( 2, 0)), 0);
 
-        m25[15] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2(-2,-1)), 0);
-        m25[16] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2(-1,-1)), 0);
-        m25[17] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2( 0,-1)), 0);
-        m25[18] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2( 1,-1)), 0);
-        m25[19] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2( 2,-1)), 0);
+	m25[15] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2(-2,-1)), 0);
+	m25[16] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2(-1,-1)), 0);
+	m25[17] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2( 0,-1)), 0);
+	m25[18] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2( 1,-1)), 0);
+	m25[19] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2( 2,-1)), 0);
 
-        m25[20] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2(-2,-2)), 0);
-        m25[21] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2(-1,-2)), 0);
-        m25[22] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2( 0,-2)), 0);
-        m25[23] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2( 1,-2)), 0);
-        m25[24] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2( 2,-2)), 0);
-        
-        vec4 centerPixel = m25[12];
-        vec3 filteredPixelColor;
+	m25[20] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2(-2,-2)), 0);
+	m25[21] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2(-1,-2)), 0);
+	m25[22] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2( 0,-2)), 0);
+	m25[23] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2( 1,-2)), 0);
+	m25[24] = texelFetch(accumulationBuffer, ivec2(gl_FragCoord.xy + vec2( 2,-2)), 0);
+	
+	vec4 centerPixel = m25[12];
+	vec3 filteredPixelColor;
 	float threshold = 1.0;
-        int count = 1;
+	int count = 1;
 
-        // start with center pixel
-        filteredPixelColor = m25[12].rgb;
-        // search left
-        if (m25[11].a < threshold)
-        {
-                filteredPixelColor += m25[11].rgb;
-                count++; 
-                if (m25[10].a < threshold)
-                {
-                        filteredPixelColor += m25[10].rgb;
-                        count++; 
-                }
-                if (m25[5].a < threshold)
-                {
-                        filteredPixelColor += m25[5].rgb;
-                        count++; 
-                }
-        }
-        // search right
-        if (m25[13].a < threshold)
-        {
-                filteredPixelColor += m25[13].rgb;
-                count++; 
-                if (m25[14].a < threshold)
-                {
-                        filteredPixelColor += m25[14].rgb;
-                        count++; 
-                }
-                if (m25[19].a < threshold)
-                {
-                        filteredPixelColor += m25[19].rgb;
-                        count++; 
-                }
-        }
-        // search above
-        if (m25[7].a < threshold)
-        {
-                filteredPixelColor += m25[7].rgb;
-                count++; 
-                if (m25[2].a < threshold)
-                {
-                        filteredPixelColor += m25[2].rgb;
-                        count++; 
-                }
-                if (m25[3].a < threshold)
-                {
-                        filteredPixelColor += m25[3].rgb;
-                        count++; 
-                }
-        }
-        // search below
-        if (m25[17].a < threshold)
-        {
-                filteredPixelColor += m25[17].rgb;
-                count++; 
-                if (m25[22].a < threshold)
-                {
-                        filteredPixelColor += m25[22].rgb;
-                        count++; 
-                }
-                if (m25[21].a < threshold)
-                {
-                        filteredPixelColor += m25[21].rgb;
-                        count++; 
-                }
-        }
+	// start with center pixel
+	filteredPixelColor = m25[12].rgb;
+	// search left
+	if (m25[11].a < threshold)
+	{
+		filteredPixelColor += m25[11].rgb;
+		count++; 
+		if (m25[10].a < threshold)
+		{
+			filteredPixelColor += m25[10].rgb;
+			count++; 
+		}
+		if (m25[5].a < threshold)
+		{
+			filteredPixelColor += m25[5].rgb;
+			count++; 
+		}
+	}
+	// search right
+	if (m25[13].a < threshold)
+	{
+		filteredPixelColor += m25[13].rgb;
+		count++; 
+		if (m25[14].a < threshold)
+		{
+			filteredPixelColor += m25[14].rgb;
+			count++; 
+		}
+		if (m25[19].a < threshold)
+		{
+			filteredPixelColor += m25[19].rgb;
+			count++; 
+		}
+	}
+	// search above
+	if (m25[7].a < threshold)
+	{
+		filteredPixelColor += m25[7].rgb;
+		count++; 
+		if (m25[2].a < threshold)
+		{
+			filteredPixelColor += m25[2].rgb;
+			count++; 
+		}
+		if (m25[3].a < threshold)
+		{
+			filteredPixelColor += m25[3].rgb;
+			count++; 
+		}
+	}
+	// search below
+	if (m25[17].a < threshold)
+	{
+		filteredPixelColor += m25[17].rgb;
+		count++; 
+		if (m25[22].a < threshold)
+		{
+			filteredPixelColor += m25[22].rgb;
+			count++; 
+		}
+		if (m25[21].a < threshold)
+		{
+			filteredPixelColor += m25[21].rgb;
+			count++; 
+		}
+	}
 
-        // search upper-left
-        if (m25[6].a < threshold)
-        {
-                filteredPixelColor += m25[6].rgb;
-                count++; 
-                if (m25[0].a < threshold)
-                {
-                        filteredPixelColor += m25[0].rgb;
-                        count++; 
-                }
-                if (m25[1].a < threshold)
-                {
-                        filteredPixelColor += m25[1].rgb;
-                        count++; 
-                }
-        }
-        // search upper-right
-        if (m25[8].a < threshold)
-        {
-                filteredPixelColor += m25[8].rgb;
-                count++; 
-                if (m25[4].a < threshold)
-                {
-                        filteredPixelColor += m25[4].rgb;
-                        count++; 
-                }
-                if (m25[9].a < threshold)
-                {
-                        filteredPixelColor += m25[9].rgb;
-                        count++; 
-                }
-        }
-        // search lower-left
-        if (m25[16].a < threshold)
-        {
-                filteredPixelColor += m25[16].rgb;
-                count++; 
-                if (m25[15].a < threshold)
-                {
-                        filteredPixelColor += m25[15].rgb;
-                        count++; 
-                }
-                if (m25[20].a < threshold)
-                {
-                        filteredPixelColor += m25[20].rgb;
-                        count++; 
-                }
-        }
-        // search lower-right
-        if (m25[18].a < threshold)
-        {
-                filteredPixelColor += m25[18].rgb;
-                count++; 
-                if (m25[23].a < threshold)
-                {
-                        filteredPixelColor += m25[23].rgb;
-                        count++; 
-                }
-                if (m25[24].a < threshold)
-                {
-                        filteredPixelColor += m25[24].rgb;
-                        count++; 
-                }
-        }
-        
-        filteredPixelColor /= float(count);
-
-
-        // 3x3 kernel
-        vec4 m9[9];
-        m9[0] = m25[6];
-        m9[1] = m25[7];
-        m9[2] = m25[8];
-
-        m9[3] = m25[11];
-        m9[4] = m25[12];
-        m9[5] = m25[13];
-
-        m9[6] = m25[16];
-        m9[7] = m25[17];
-        m9[8] = m25[18];
-
-        if (centerPixel.a == -1.0)
-        {
-                // reset variables
-                centerPixel = m9[4];
-                count = 1;
-
-                // start with center pixel
-                filteredPixelColor = m9[4].rgb;
-
-                // search left
-                if (m9[3].a < threshold)
-                {
-                        filteredPixelColor += m9[3].rgb;
-                        count++; 
-                }
-                // search right
-                if (m9[5].a < threshold)
-                {
-                        filteredPixelColor += m9[5].rgb;
-                        count++; 
-                }
-                // search above
-                if (m9[1].a < threshold)
-                {
-                        filteredPixelColor += m9[1].rgb;
-                        count++; 
-                }
-                // search below
-                if (m9[7].a < threshold)
-                {
-                        filteredPixelColor += m9[7].rgb;
-                        count++; 
-                }
-
-                // search upper-left
-                if (m9[0].a < threshold)
-                {
-                        filteredPixelColor += m9[0].rgb;
-                        count++; 
-                }
-                // search upper-right
-                if (m9[2].a < threshold)
-                {
-                        filteredPixelColor += m9[2].rgb;
-                        count++; 
-                }
-                // search lower-left
-                if (m9[6].a < threshold)
-                {
-                        filteredPixelColor += m9[6].rgb;
-                        count++; 
-                }
-                // search lower-right
-                if (m9[8].a < threshold)
-                {
-                        filteredPixelColor += m9[8].rgb;
-                        count++; 
-                }
-
-                filteredPixelColor /= float(count);
-
-        } // end if (centerPixel.a == -1.0)
+	// search upper-left
+	if (m25[6].a < threshold)
+	{
+		filteredPixelColor += m25[6].rgb;
+		count++; 
+		if (m25[0].a < threshold)
+		{
+			filteredPixelColor += m25[0].rgb;
+			count++; 
+		}
+		if (m25[1].a < threshold)
+		{
+			filteredPixelColor += m25[1].rgb;
+			count++; 
+		}
+	}
+	// search upper-right
+	if (m25[8].a < threshold)
+	{
+		filteredPixelColor += m25[8].rgb;
+		count++; 
+		if (m25[4].a < threshold)
+		{
+			filteredPixelColor += m25[4].rgb;
+			count++; 
+		}
+		if (m25[9].a < threshold)
+		{
+			filteredPixelColor += m25[9].rgb;
+			count++; 
+		}
+	}
+	// search lower-left
+	if (m25[16].a < threshold)
+	{
+		filteredPixelColor += m25[16].rgb;
+		count++; 
+		if (m25[15].a < threshold)
+		{
+			filteredPixelColor += m25[15].rgb;
+			count++; 
+		}
+		if (m25[20].a < threshold)
+		{
+			filteredPixelColor += m25[20].rgb;
+			count++; 
+		}
+	}
+	// search lower-right
+	if (m25[18].a < threshold)
+	{
+		filteredPixelColor += m25[18].rgb;
+		count++; 
+		if (m25[23].a < threshold)
+		{
+			filteredPixelColor += m25[23].rgb;
+			count++; 
+		}
+		if (m25[24].a < threshold)
+		{
+			filteredPixelColor += m25[24].rgb;
+			count++; 
+		}
+	}
+	
+	filteredPixelColor /= float(count);
 
 
-        if ( !uSceneIsDynamic ) // static scene
+	// 3x3 kernel
+	vec4 m9[9];
+	m9[0] = m25[6];
+	m9[1] = m25[7];
+	m9[2] = m25[8];
+
+	m9[3] = m25[11];
+	m9[4] = m25[12];
+	m9[5] = m25[13];
+
+	m9[6] = m25[16];
+	m9[7] = m25[17];
+	m9[8] = m25[18];
+
+	if (centerPixel.a == -1.0)
+	{
+		// reset variables
+		centerPixel = m9[4];
+		count = 1;
+
+		// start with center pixel
+		filteredPixelColor = m9[4].rgb;
+
+		// search left
+		if (m9[3].a < threshold)
+		{
+			filteredPixelColor += m9[3].rgb;
+			count++; 
+		}
+		// search right
+		if (m9[5].a < threshold)
+		{
+			filteredPixelColor += m9[5].rgb;
+			count++; 
+		}
+		// search above
+		if (m9[1].a < threshold)
+		{
+			filteredPixelColor += m9[1].rgb;
+			count++; 
+		}
+		// search below
+		if (m9[7].a < threshold)
+		{
+			filteredPixelColor += m9[7].rgb;
+			count++; 
+		}
+
+		// search upper-left
+		if (m9[0].a < threshold)
+		{
+			filteredPixelColor += m9[0].rgb;
+			count++; 
+		}
+		// search upper-right
+		if (m9[2].a < threshold)
+		{
+			filteredPixelColor += m9[2].rgb;
+			count++; 
+		}
+		// search lower-left
+		if (m9[6].a < threshold)
+		{
+			filteredPixelColor += m9[6].rgb;
+			count++; 
+		}
+		// search lower-right
+		if (m9[8].a < threshold)
+		{
+			filteredPixelColor += m9[8].rgb;
+			count++; 
+		}
+
+		filteredPixelColor /= float(count);
+
+	} // end if (centerPixel.a == -1.0)
+
+
+	if ( !uSceneIsDynamic ) // static scene
 	{
 		// fast progressive convergence from filtered (blurred) pixels to their original sharp center pixel colors  
 		if (uSampleCounter > 1.0) // is camera still?
@@ -320,16 +320,16 @@ void main(void)
 	}
 
 
-        // final filteredPixelColor processing ////////////////////////////////////
+	// final filteredPixelColor processing ////////////////////////////////////
 
-        // average accumulation buffer
-        filteredPixelColor *= uOneOverSampleCounter;
+	// average accumulation buffer
+	filteredPixelColor *= uOneOverSampleCounter;
 
-        // apply tone mapping (brings pixel into 0.0-1.0 rgb color range)
-        filteredPixelColor = ReinhardToneMapping(filteredPixelColor);
-        
-        // lastly, apply gamma correction (gives more intensity/brightness range where it's needed)
-        glFragColor = clamp(vec4( pow(filteredPixelColor, vec3(0.4545)), 1.0 ), 0.0, 1.0);
+	// apply tone mapping (brings pixel into 0.0-1.0 rgb color range)
+	filteredPixelColor = ReinhardToneMapping(filteredPixelColor);
+	
+	// lastly, apply gamma correction (gives more intensity/brightness range where it's needed)
+	glFragColor = clamp(vec4( pow(filteredPixelColor, vec3(0.4545)), 1.0 ), 0.0, 1.0);
 }
 `;
 
@@ -415,7 +415,7 @@ BABYLON.Effect.IncludesShadersStore['pathtracing_physical_sky_defines'] = `
 #define RAYLEIGH_ZENITH_LENGTH 8400.0
 #define MIE_ZENITH_LENGTH 1250.0
 #define UP_VECTOR vec3(0.0, 1.0, 0.0)
-#define SUN_POWER 200.0
+#define SUN_POWER 100.0
 // 66 arc seconds -> degrees, and the cosine of that
 #define SUN_ANGULAR_DIAMETER_COS 0.9998 //0.9999566769
 #define CUTOFF_ANGLE 1.6110731556870734
@@ -434,8 +434,8 @@ float RayleighPhase(float cosTheta)
 
 float hgPhase(float cosTheta, float g)
 {
-        float g2 = g * g;
-        float inverse = 1.0 / pow(max(0.0, 1.0 - 2.0 * g * cosTheta + g2), 1.5);
+	float g2 = g * g;
+	float inverse = 1.0 / pow(max(0.0, 1.0 - 2.0 * g * cosTheta + g2), 1.5);
 	return ONE_OVER_FOURPI * ((1.0 - g2) * inverse);
 }
 
@@ -461,7 +461,7 @@ vec3 Get_Sky_Color(vec3 rayDir)
     	float cosSunUpAngle = dot(UP_VECTOR, uSunDirection); // allowed to be negative: + is daytime, - is nighttime
     	float cosUpViewAngle = dot(UP_VECTOR, viewDirection);
 
-        // Get sun intensity based on how high in the sky it is
+	// Get sun intensity based on how high in the sky it is
     	float sunE = SunIntensity(cosSunUpAngle);
 
 	// extinction (absorbtion + out scattering)
@@ -547,7 +547,7 @@ vec3 randomCosWeightedDirectionInHemisphere(vec3 nl) // required for all diffuse
 	float y = r * sin(phi);
 	float z = sqrt(1.0 - x*x - y*y);
 	
-        vec3 U = normalize( cross( abs(nl.y) < 0.9 ? vec3(0, 1, 0) : vec3(1, 0, 0), nl ) );
+	vec3 U = normalize( cross( abs(nl.y) < 0.9 ? vec3(0, 1, 0) : vec3(1, 0, 0), nl ) );
 	vec3 V = cross(nl, U);
 	return normalize(x * U + y * V + z * nl);
 }
@@ -686,25 +686,25 @@ BABYLON.Effect.IncludesShadersStore[ 'pathtracing_unit_sphere_intersect' ] = `
 
 float UnitSphereIntersect( vec3 ro, vec3 rd, out vec3 n )
 {
-        vec3 hit;
+	vec3 hit;
 	float t0, t1;
 	float a = dot(rd, rd);
 	float b = 2.0 * dot(rd, ro);
 	float c = dot(ro, ro) - 1.0; // - (rad * rad) = - (1.0 * 1.0) = - 1.0 
 	solveQuadratic(a, b, c, t0, t1);
 	if (t0 > 0.0)
-        {
-                hit = ro + rd * t0;
-                n = vec3(2.0 * hit.x, 2.0 * hit.y, 2.0 * hit.z);
-                return t0;
-        }
-        if (t1 > 0.0)
-        {
-                hit = ro + rd * t1;
-                n = vec3(2.0 * hit.x, 2.0 * hit.y, 2.0 * hit.z);
-                return t1;
-        }
-        return INFINITY;
+	{
+		hit = ro + rd * t0;
+		n = vec3(2.0 * hit.x, 2.0 * hit.y, 2.0 * hit.z);
+		return t0;
+	}
+	if (t1 > 0.0)
+	{
+		hit = ro + rd * t1;
+		n = vec3(2.0 * hit.x, 2.0 * hit.y, 2.0 * hit.z);
+		return t1;
+	}
+	return INFINITY;
 }
 
 `;
@@ -714,26 +714,26 @@ BABYLON.Effect.IncludesShadersStore[ 'pathtracing_unit_cylinder_intersect' ] = `
 
 float UnitCylinderIntersect( vec3 ro, vec3 rd, out vec3 n )
 {
-        vec3 hit;
+	vec3 hit;
 	float t0, t1;
 	float a = (rd.x * rd.x + rd.z * rd.z);
     	float b = 2.0 * (rd.x * ro.x + rd.z * ro.z);
     	float c = (ro.x * ro.x + ro.z * ro.z) - 1.0; 
 	solveQuadratic(a, b, c, t0, t1);
 
-        hit = ro + rd * t0;
-        if (t0 > 0.0 && abs(hit.y) <= 1.0)
-        {
-                n = vec3(2.0 * hit.x, 0.0, 2.0 * hit.z);
-                return t0;
-        }
-        hit = ro + rd * t1;
-        if (t1 > 0.0 && abs(hit.y) <= 1.0)
-        {
-                n = vec3(2.0 * hit.x, 0.0, 2.0 * hit.z);
-                return t1;
-        }
-        return INFINITY;
+	hit = ro + rd * t0;
+	if (t0 > 0.0 && abs(hit.y) <= 1.0)
+	{
+		n = vec3(2.0 * hit.x, 0.0, 2.0 * hit.z);
+		return t0;
+	}
+	hit = ro + rd * t1;
+	if (t1 > 0.0 && abs(hit.y) <= 1.0)
+	{
+		n = vec3(2.0 * hit.x, 0.0, 2.0 * hit.z);
+		return t1;
+	}
+	return INFINITY;
 }
 
 `;
@@ -743,7 +743,7 @@ BABYLON.Effect.IncludesShadersStore[ 'pathtracing_unit_cone_intersect' ] = `
 
 float UnitConeIntersect( vec3 ro, vec3 rd, float k, out vec3 n )
 {
-        vec3 hit;
+	vec3 hit;
 	float t0, t1;
 	// valid range for k: 0.01 to 1.0 (1.0 being the default for cone with a sharp, pointed apex)
 	k = clamp(k, 0.01, 1.0);
@@ -755,19 +755,19 @@ float UnitConeIntersect( vec3 ro, vec3 rd, float k, out vec3 n )
     	float c = j * ro.x * ro.x + j * ro.z * ro.z - (k * 0.25) * (ro.y - h) * (ro.y - h);
 	solveQuadratic(a, b, c, t0, t1);
 
-        hit = ro + rd * t0;
-        if (t0 > 0.0 && abs(hit.y) <= 1.0)
-        {
-                n = vec3(2.0 * hit.x * j, 2.0 * (h - hit.y) * (k * 0.25), 2.0 * hit.z * j);
-                return t0;
-        }
-        hit = ro + rd * t1;
-        if (t1 > 0.0 && abs(hit.y) <= 1.0)
-        {
-                n = vec3(2.0 * hit.x * j, 2.0 * (h - hit.y) * (k * 0.25), 2.0 * hit.z * j);
-                return t1;
-        }
-        return INFINITY;
+	hit = ro + rd * t0;
+	if (t0 > 0.0 && abs(hit.y) <= 1.0)
+	{
+		n = vec3(2.0 * hit.x * j, 2.0 * (h - hit.y) * (k * 0.25), 2.0 * hit.z * j);
+		return t0;
+	}
+	hit = ro + rd * t1;
+	if (t1 > 0.0 && abs(hit.y) <= 1.0)
+	{
+		n = vec3(2.0 * hit.x * j, 2.0 * (h - hit.y) * (k * 0.25), 2.0 * hit.z * j);
+		return t1;
+	}
+	return INFINITY;
 }
 
 `;
@@ -777,7 +777,7 @@ BABYLON.Effect.IncludesShadersStore[ 'pathtracing_unit_paraboloid_intersect' ] =
 
 float UnitParaboloidIntersect( vec3 ro, vec3 rd, out vec3 n )
 {
-        vec3 hit;
+	vec3 hit;
 	float t0, t1;
 	float k = 0.5;
 	float a = rd.x * rd.x + rd.z * rd.z;
@@ -785,19 +785,19 @@ float UnitParaboloidIntersect( vec3 ro, vec3 rd, out vec3 n )
     	float c = ro.x * ro.x + ro.z * ro.z + k * (ro.y - 1.0); 
 	solveQuadratic(a, b, c, t0, t1);
 
-        hit = ro + rd * t0;
-        if (t0 > 0.0 && abs(hit.y) <= 1.0)
-        { 
-                n = vec3(2.0 * hit.x, 0.5, 2.0 * hit.z);
-                return t0;
-        }
-        hit = ro + rd * t1;
-        if (t1 > 0.0 && abs(hit.y) <= 1.0)
-        { 
-                n = vec3(2.0 * hit.x, 0.5, 2.0 * hit.z);
-                return t1;
-        }
-        return INFINITY;
+	hit = ro + rd * t0;
+	if (t0 > 0.0 && abs(hit.y) <= 1.0)
+	{ 
+		n = vec3(2.0 * hit.x, 0.5, 2.0 * hit.z);
+		return t0;
+	}
+	hit = ro + rd * t1;
+	if (t1 > 0.0 && abs(hit.y) <= 1.0)
+	{ 
+		n = vec3(2.0 * hit.x, 0.5, 2.0 * hit.z);
+		return t1;
+	}
+	return INFINITY;
 }
 
 `;
@@ -807,29 +807,29 @@ BABYLON.Effect.IncludesShadersStore[ 'pathtracing_unit_hyperboloid_intersect' ] 
 
 float UnitHyperboloidIntersect( vec3 ro, vec3 rd, float k, out vec3 n )
 {
-        vec3 hit;
+	vec3 hit;
 	float t0, t1;
-        // k initially comes in as a value between 0.01 and 1.0
-        k = k * k * k * k + 0.0012;
-        k *= 1000.0; // conservative range of k for the hyperboloid: 0.001 to 1000
+	// k initially comes in as a value between 0.01 and 1.0
+	k = k * k * k * k + 0.0012;
+	k *= 1000.0; // conservative range of k for the hyperboloid: 0.001 to 1000
 	float j = k - 1.0;
 	float a = k * rd.x * rd.x + k * rd.z * rd.z - j * rd.y * rd.y;
 	float b = 2.0 * (k * rd.x * ro.x + k * rd.z * ro.z - j * rd.y * ro.y);
 	float c = (k * ro.x * ro.x + k * ro.z * ro.z - j * ro.y * ro.y) - 1.0;
 	solveQuadratic(a, b, c, t0, t1);
 
-        hit = ro + rd * t0;
-        if (t0 > 0.0 && abs(hit.y) <= 1.0)
-        {
-                n = vec3(2.0 * hit.x * k, 2.0 * -hit.y * j, 2.0 * hit.z * k);
-                return t0;
-        }
-        hit = ro + rd * t1;
-        if (t1 > 0.0 && abs(hit.y) <= 1.0)
-        {
-                n = vec3(2.0 * hit.x * k, 2.0 * -hit.y * j, 2.0 * hit.z * k);
-                return t1;
-        }
+	hit = ro + rd * t0;
+	if (t0 > 0.0 && abs(hit.y) <= 1.0)
+	{
+		n = vec3(2.0 * hit.x * k, 2.0 * -hit.y * j, 2.0 * hit.z * k);
+		return t0;
+	}
+	hit = ro + rd * t1;
+	if (t1 > 0.0 && abs(hit.y) <= 1.0)
+	{
+		n = vec3(2.0 * hit.x * k, 2.0 * -hit.y * j, 2.0 * hit.z * k);
+		return t1;
+	}
 	return INFINITY;
 }
 
@@ -840,14 +840,14 @@ BABYLON.Effect.IncludesShadersStore[ 'pathtracing_unit_capsule_intersect' ] = `
 
 float UnitCapsuleIntersect( vec3 ro, vec3 rd, float k, out vec3 n )
 {
-        k += 0.25;
+	k += 0.25;
 
-        vec3 hit;
+	vec3 hit;
 	float t, t0, t1;
-        float s0t0, s0t1, s1t0, s1t1;
-        // first test if any of the first intersections (t0's) of both sphere caps and cylinder are valid - if so, return that t0
-        
-        // intersect unit-radius sphere cap located at top opening of cylinder
+	float s0t0, s0t1, s1t0, s1t1;
+	// first test if any of the first intersections (t0's) of both sphere caps and cylinder are valid - if so, return that t0
+	
+	// intersect unit-radius sphere cap located at top opening of cylinder
 	vec3 s0pos = vec3(0, k, 0);
 	vec3 L = ro - s0pos;
 	float a = dot(rd, rd);
@@ -855,12 +855,12 @@ float UnitCapsuleIntersect( vec3 ro, vec3 rd, float k, out vec3 n )
 	float c = dot(L, L) - 1.0;
 	solveQuadratic(a, b, c, s0t0, s0t1);
 	hit = ro + rd * s0t0;
-        if (s0t0 > 0.0 && hit.y >= k)
-        {
-                n = vec3(2.0 * hit.x, 2.0 * (hit.y - k), 2.0 * hit.z);
-                return s0t0;
-        }
-        
+	if (s0t0 > 0.0 && hit.y >= k)
+	{
+		n = vec3(2.0 * hit.x, 2.0 * (hit.y - k), 2.0 * hit.z);
+		return s0t0;
+	}
+	
 	// intersect unit-radius sphere cap located at bottom opening of cylinder
 	vec3 s1pos = vec3(0, -k, 0);
 	L = ro - s1pos;
@@ -869,47 +869,47 @@ float UnitCapsuleIntersect( vec3 ro, vec3 rd, float k, out vec3 n )
 	c = dot(L, L) - 1.0;
 	solveQuadratic(a, b, c, s1t0, s1t1);
 	hit = ro + rd * s1t0;
-        if (s1t0 > 0.0 && hit.y <= -k)
-        {
-                n = vec3(2.0 * hit.x, 2.0 * (hit.y + k), 2.0 * hit.z);
-                return s1t0;
-        }
-        
-        // intersect unit cylinder
-        a = (rd.x * rd.x + rd.z * rd.z);
+	if (s1t0 > 0.0 && hit.y <= -k)
+	{
+		n = vec3(2.0 * hit.x, 2.0 * (hit.y + k), 2.0 * hit.z);
+		return s1t0;
+	}
+	
+	// intersect unit cylinder
+	a = (rd.x * rd.x + rd.z * rd.z);
     	b = 2.0 * (rd.x * ro.x + rd.z * ro.z);
     	c = (ro.x * ro.x + ro.z * ro.z) - 1.0;
 	solveQuadratic(a, b, c, t0, t1);
 	hit = ro + rd * t0;
-        if (t0 > 0.0 && abs(hit.y) <= k)
-        {
-                n = vec3(2.0 * hit.x, 0.0, 2.0 * hit.z);
-                return t0;
-        }
+	if (t0 > 0.0 && abs(hit.y) <= k)
+	{
+		n = vec3(2.0 * hit.x, 0.0, 2.0 * hit.z);
+		return t0;
+	}
 
-        // lastly, test if any of the 2nd intersections (t1's) of both sphere caps and cylinder are valid - if so, return that t1 
-        hit = ro + rd * s0t1;
-        if (s0t1 > 0.0 && hit.y >= k)
-        {
-                n = vec3(2.0 * hit.x, 2.0 * (hit.y - k), 2.0 * hit.z);
-                return s0t1;
-        }
+	// lastly, test if any of the 2nd intersections (t1's) of both sphere caps and cylinder are valid - if so, return that t1 
+	hit = ro + rd * s0t1;
+	if (s0t1 > 0.0 && hit.y >= k)
+	{
+		n = vec3(2.0 * hit.x, 2.0 * (hit.y - k), 2.0 * hit.z);
+		return s0t1;
+	}
 
-        hit = ro + rd * s1t1;
-        if (s1t1 > 0.0 && hit.y <= -k)
-        {
-                n = vec3(2.0 * hit.x, 2.0 * (hit.y + k), 2.0 * hit.z);
-                return s1t1;
-        }
+	hit = ro + rd * s1t1;
+	if (s1t1 > 0.0 && hit.y <= -k)
+	{
+		n = vec3(2.0 * hit.x, 2.0 * (hit.y + k), 2.0 * hit.z);
+		return s1t1;
+	}
 
-        hit = ro + rd * t1;
-        if (t1 > 0.0 && abs(hit.y) <= k)
-        {
-                n = vec3(2.0 * hit.x, 0.0, 2.0 * hit.z);
-                return t1;
-        }
-        
-        return INFINITY;
+	hit = ro + rd * t1;
+	if (t1 > 0.0 && abs(hit.y) <= k)
+	{
+		n = vec3(2.0 * hit.x, 0.0, 2.0 * hit.z);
+		return t1;
+	}
+	
+	return INFINITY;
 }
 
 `;
@@ -919,83 +919,83 @@ BABYLON.Effect.IncludesShadersStore[ 'pathtracing_unit_flattened_ring_intersect'
 
 float UnitFlattenedRingIntersect( vec3 ro, vec3 rd, float k, out vec3 n )
 {
-        k -= 0.01;
-        vec3 hit;
+	k -= 0.01;
+	vec3 hit;
 	float t0, t1, c0, c1;
 
-        // intersect unit outer-cylinder
+	// intersect unit outer-cylinder
 	float a = (rd.x * rd.x + rd.z * rd.z);
     	float b = 2.0 * (rd.x * ro.x + rd.z * ro.z);
     	float c = (ro.x * ro.x + ro.z * ro.z) - 1.0; 
 	solveQuadratic(a, b, c, t0, t1);
-        hit = ro + rd * t0;
-        if (t0 > 0.0 && abs(hit.y) <= 1.0)
-        {
-                n = vec3(2.0 * hit.x, 0.0, 2.0 * hit.z);
-                return t0;
-        }
+	hit = ro + rd * t0;
+	if (t0 > 0.0 && abs(hit.y) <= 1.0)
+	{
+		n = vec3(2.0 * hit.x, 0.0, 2.0 * hit.z);
+		return t0;
+	}
 
-        // intersect top unit radius disk (but if intersect point is in area of hole, it's a miss)
-        float d0 = (ro.y - 1.0) / -rd.y;
+	// intersect top unit radius disk (but if intersect point is in area of hole, it's a miss)
+	float d0 = (ro.y - 1.0) / -rd.y;
 	hit = ro + rd * d0;
-        float x2z2 = hit.x * hit.x + hit.z * hit.z;
+	float x2z2 = hit.x * hit.x + hit.z * hit.z;
 	if (rd.y < 0.0 && d0 > 0.0 && x2z2 <= 1.0 && x2z2 > k)
-        {
-                n = vec3(0, 1, 0);
-                return d0;
-        }
-        // intersect bottom unit radius disk (but if intersect point is in area of hole, it's a miss)
+	{
+		n = vec3(0, 1, 0);
+		return d0;
+	}
+	// intersect bottom unit radius disk (but if intersect point is in area of hole, it's a miss)
 	float d1 = (ro.y + 1.0) / -rd.y;
 	hit = ro + rd * d1;
-        x2z2 = hit.x * hit.x + hit.z * hit.z;
+	x2z2 = hit.x * hit.x + hit.z * hit.z;
 	if (rd.y > 0.0 && d1 > 0.0 && x2z2 <= 1.0 && x2z2 > k)
-        {
-                n = vec3(0, -1, 0);
-                return d1;
-        }
+	{
+		n = vec3(0, -1, 0);
+		return d1;
+	}
 
-        // intersect k-sized radius inner-cylinder
-        c = (ro.x * ro.x + ro.z * ro.z) - k;
-        solveQuadratic(a, b, c, c0, c1);
-        hit = ro + rd * c0;
-        if (c0 > 0.0 && abs(hit.y) <= 1.0)
-        {
-                n = vec3(2.0 * hit.x, 0.0, 2.0 * hit.z);
-                return c0;
-        }
-        // the rear of the k-sized radius inner cylinder
-        hit = ro + rd * c1;
-        if (c1 > 0.0 && abs(hit.y) <= 1.0)
-        {
-                n = vec3(2.0 * hit.x, 0.0, 2.0 * hit.z);
-                return c1;
-        }
+	// intersect k-sized radius inner-cylinder
+	c = (ro.x * ro.x + ro.z * ro.z) - k;
+	solveQuadratic(a, b, c, c0, c1);
+	hit = ro + rd * c0;
+	if (c0 > 0.0 && abs(hit.y) <= 1.0)
+	{
+		n = vec3(2.0 * hit.x, 0.0, 2.0 * hit.z);
+		return c0;
+	}
+	// the rear of the k-sized radius inner cylinder
+	hit = ro + rd * c1;
+	if (c1 > 0.0 && abs(hit.y) <= 1.0)
+	{
+		n = vec3(2.0 * hit.x, 0.0, 2.0 * hit.z);
+		return c1;
+	}
 
-        // the rear of the unit radius outer cylinder
-        hit = ro + rd * t1;
-        if (t1 > 0.0 && abs(hit.y) <= 1.0)
-        {
-                n = vec3(2.0 * hit.x, 0.0, 2.0 * hit.z);
-                return t1;
-        }
-        // top disk (with hole cut out) from inside
+	// the rear of the unit radius outer cylinder
+	hit = ro + rd * t1;
+	if (t1 > 0.0 && abs(hit.y) <= 1.0)
+	{
+		n = vec3(2.0 * hit.x, 0.0, 2.0 * hit.z);
+		return t1;
+	}
+	// top disk (with hole cut out) from inside
 	hit = ro + rd * d0;
-        x2z2 = hit.x * hit.x + hit.z * hit.z;
+	x2z2 = hit.x * hit.x + hit.z * hit.z;
 	if (rd.y > 0.0 && d0 > 0.0 && x2z2 <= 1.0 && x2z2 > k)
-        {
-                n = vec3(0, 1, 0);
-                return d0;
-        }
-        // bottom disk (with hole cut out) from inside
+	{
+		n = vec3(0, 1, 0);
+		return d0;
+	}
+	// bottom disk (with hole cut out) from inside
 	hit = ro + rd * d1;
-        x2z2 = hit.x * hit.x + hit.z * hit.z;
+	x2z2 = hit.x * hit.x + hit.z * hit.z;
 	if (rd.y < 0.0 && d1 > 0.0 && x2z2 <= 1.0 && x2z2 > k)
-        {
-                n = vec3(0, -1, 0);
-                return d1;
-        }
+	{
+		n = vec3(0, -1, 0);
+		return d1;
+	}
 
-        return INFINITY;
+	return INFINITY;
 }
 
 `;
@@ -1013,21 +1013,21 @@ float UnitBoxIntersect( vec3 ro, vec3 rd, out vec3 n )
 	float t0 = max( max(tmin.x, tmin.y), tmin.z);
 	float t1 = min( min(tmax.x, tmax.y), tmax.z);
 
-        if (t0 < t1)
-        {
-                if (t0 > 0.0)
-                {
-                        n = -sign(rd) * step(tmin.yzx, tmin) * step(tmin.zxy, tmin);
-                        return t0;
-                }
-                if (t1 > 0.0)
-                {
-                        n = -sign(rd) * step(tmax, tmax.yzx) * step(tmax, tmax.zxy);
-                        return t1;
-                }
-        }
+	if (t0 < t1)
+	{
+		if (t0 > 0.0)
+		{
+			n = -sign(rd) * step(tmin.yzx, tmin) * step(tmin.zxy, tmin);
+			return t0;
+		}
+		if (t1 > 0.0)
+		{
+			n = -sign(rd) * step(tmax, tmax.yzx) * step(tmax, tmax.zxy);
+			return t1;
+		}
+	}
 
-        return INFINITY;
+	return INFINITY;
 }
 
 `;
@@ -1037,14 +1037,14 @@ BABYLON.Effect.IncludesShadersStore[ 'pathtracing_pyramid_frustum_intersect' ] =
 
 float PyramidFrustumIntersect( vec3 ro, vec3 rd, float k, out vec3 n )
 {
-        float xt0, xt1, zt0, zt1;
-        float xt = INFINITY;
-        float zt = INFINITY;
-        vec3 hit0, hit1, xn, zn;
+	float xt0, xt1, zt0, zt1;
+	float xt = INFINITY;
+	float zt = INFINITY;
+	vec3 hit0, hit1, xn, zn;
 	// valid range for k: 0.01 to 1.0 (1.0 being the default for cone with a sharp, pointed apex)
 	k = clamp(k, 0.01, 1.0);
 	
-        // first, intersect left and right sides of pyramid/frustum
+	// first, intersect left and right sides of pyramid/frustum
 	float j = 1.0 / k;
 	float h = j * 2.0 - 1.0; // (k * 0.25) makes the normal cone's bottom circular base have a unit radius of 1.0
 	float a = j * rd.x * rd.x - (k * 0.25) * rd.y * rd.y;
@@ -1052,17 +1052,17 @@ float PyramidFrustumIntersect( vec3 ro, vec3 rd, float k, out vec3 n )
     	float c = j * ro.x * ro.x - (k * 0.25) * (ro.y - h) * (ro.y - h);
 	solveQuadratic(a, b, c, xt0, xt1);
 	hit0 = ro + rd * xt0;
-        hit1 = ro + rd * xt1;
-        if (xt0 > 0.0 && abs(hit0.x) <= 1.0 && abs(hit0.z) <= 1.0 && hit0.y <= 1.0 && (j * hit0.z * hit0.z - k * 0.25 * (hit0.y - h) * (hit0.y - h)) <= 0.0)
+	hit1 = ro + rd * xt1;
+	if (xt0 > 0.0 && abs(hit0.x) <= 1.0 && abs(hit0.z) <= 1.0 && hit0.y <= 1.0 && (j * hit0.z * hit0.z - k * 0.25 * (hit0.y - h) * (hit0.y - h)) <= 0.0)
 	{
-                xt = xt0;
-                xn = vec3(2.0 * hit0.x * j, 2.0 * (hit0.y - h) * -(k * 0.25), 0.0);
-        }
-        else if (xt1 > 0.0 && abs(hit1.x) <= 1.0 && abs(hit1.z) <= 1.0 && hit1.y <= 1.0 && (j * hit1.z * hit1.z - k * 0.25 * (hit1.y - h) * (hit1.y - h)) <= 0.0)
-        {
-                xt = xt1;
-                xn = vec3(2.0 * hit1.x * j, 2.0 * (hit1.y - h) * -(k * 0.25), 0.0);
-        }
+		xt = xt0;
+		xn = vec3(2.0 * hit0.x * j, 2.0 * (hit0.y - h) * -(k * 0.25), 0.0);
+	}
+	else if (xt1 > 0.0 && abs(hit1.x) <= 1.0 && abs(hit1.z) <= 1.0 && hit1.y <= 1.0 && (j * hit1.z * hit1.z - k * 0.25 * (hit1.y - h) * (hit1.y - h)) <= 0.0)
+	{
+		xt = xt1;
+		xn = vec3(2.0 * hit1.x * j, 2.0 * (hit1.y - h) * -(k * 0.25), 0.0);
+	}
 	
 	// now intersect front and back sides of pyramid/frustum
 	a = j * rd.z * rd.z - (k * 0.25) * rd.y * rd.y;
@@ -1070,28 +1070,28 @@ float PyramidFrustumIntersect( vec3 ro, vec3 rd, float k, out vec3 n )
     	c = j * ro.z * ro.z - (k * 0.25) * (ro.y - h) * (ro.y - h);
 	solveQuadratic(a, b, c, zt0, zt1);
 	hit0 = ro + rd * zt0;
-        hit1 = ro + rd * zt1;
-        if (zt0 > 0.0 && abs(hit0.x) <= 1.0 && abs(hit0.z) <= 1.0 && hit0.y <= 1.0 && (j * hit0.x * hit0.x - k * 0.25 * (hit0.y - h) * (hit0.y - h)) <= 0.0)
-        {
-                zt = zt0;
-                zn = vec3(0.0, 2.0 * (hit0.y - h) * -(k * 0.25), 2.0 * hit0.z * j);
-        }
+	hit1 = ro + rd * zt1;
+	if (zt0 > 0.0 && abs(hit0.x) <= 1.0 && abs(hit0.z) <= 1.0 && hit0.y <= 1.0 && (j * hit0.x * hit0.x - k * 0.25 * (hit0.y - h) * (hit0.y - h)) <= 0.0)
+	{
+		zt = zt0;
+		zn = vec3(0.0, 2.0 * (hit0.y - h) * -(k * 0.25), 2.0 * hit0.z * j);
+	}
 	else if (zt1 > 0.0 && abs(hit1.x) <= 1.0 && abs(hit1.z) <= 1.0 && hit1.y <= 1.0 && (j * hit1.x * hit1.x - k * 0.25 * (hit1.y - h) * (hit1.y - h)) <= 0.0)
-        {
-                zt = zt1;
-                zn = vec3(0.0, 2.0 * (hit1.y - h) * -(k * 0.25), 2.0 * hit1.z * j);
-        }
+	{
+		zt = zt1;
+		zn = vec3(0.0, 2.0 * (hit1.y - h) * -(k * 0.25), 2.0 * hit1.z * j);
+	}
 	
-        if (xt <= zt)
-        {
-                n = xn;
-                return xt;
-        }
-        else
-        {
-                n = zn;
-                return zt;
-        }
+	if (xt <= zt)
+	{
+		n = xn;
+		return xt;
+	}
+	else
+	{
+		n = zn;
+		return zt;
+	}
 }
 
 `;
@@ -1101,7 +1101,7 @@ BABYLON.Effect.IncludesShadersStore[ 'pathtracing_unit_disk_intersect' ] = `
 
 float UnitDiskIntersect( vec3 ro, vec3 rd )
 {
-        float t0 = (ro.y + 0.0) / -rd.y;
+	float t0 = (ro.y + 0.0) / -rd.y;
 	vec3 hit = ro + rd * t0;
 	return (t0 > 0.0 && hit.x * hit.x + hit.z * hit.z <= 1.0) ? t0 : INFINITY; // disk with unit radius
 }
@@ -1113,7 +1113,7 @@ BABYLON.Effect.IncludesShadersStore[ 'pathtracing_unit_rectangle_intersect' ] = 
 
 float UnitRectangleIntersect( vec3 ro, vec3 rd )
 {
-        float t0 = (ro.y + 0.0) / -rd.y;
+	float t0 = (ro.y + 0.0) / -rd.y;
 	vec3 hit = ro + rd * t0;
 	return (t0 > 0.0 && abs(hit.x) <= 1.0 && abs(hit.z) <= 1.0) ? t0 : INFINITY; // rectangle with unit radius
 }
@@ -1132,55 +1132,55 @@ float map_Torus( in vec3 pos, float k )
 
 float UnitTorusIntersect( vec3 ro, vec3 rd, float k, out vec3 n )
 {	
-        // unit torus - outer radius is always 1.0 (in torus object space)
-        // k represents the inner radius, conservative range: 
-        //    0.01 (thickest torus, inner radius is almost at center (0.01) while outer radius is way out at 1.0)...
-        // to 0.99 (very thin torus, inner radius (0.99) is right next to outer radius which is at 1.0)
-        k = 1.0 - clamp(k, 0.01, 0.99);
+	// unit torus - outer radius is always 1.0 (in torus object space)
+	// k represents the inner radius, conservative range: 
+	//    0.01 (thickest torus, inner radius is almost at center (0.01) while outer radius is way out at 1.0)...
+	// to 0.99 (very thin torus, inner radius (0.99) is right next to outer radius which is at 1.0)
+	k = 1.0 - clamp(k, 0.01, 0.99);
 
-        float d = INFINITY;
+	float d = INFINITY;
 	vec3 hit;
 
-        float tc, t0, t1;
+	float tc, t0, t1;
 	float a = (rd.x * rd.x + rd.z * rd.z);
     	float b = 2.0 * (rd.x * ro.x + rd.z * ro.z);
     	float c = (ro.x * ro.x + ro.z * ro.z) - 1.0; 
 	solveQuadratic(a, b, c, t0, t1);
-        vec3 hit0 = ro + rd * t0;
-        vec3 hit1 = ro + rd * t1;
+	vec3 hit0 = ro + rd * t0;
+	vec3 hit1 = ro + rd * t1;
 	tc = (t0 > 0.0 && abs(hit0.y) <= k) ? t0 : (t1 > 0.0 && abs(hit1.y) <= k) ? t1 : INFINITY;
 
-        float d0 = (ro.y + k) / -rd.y;
+	float d0 = (ro.y + k) / -rd.y;
 	hit = ro + rd * d0;
 	d0 = (d0 > 0.0 && hit.x * hit.x + hit.z * hit.z <= 1.0) ? d0 : INFINITY; // disk with unit radius
 	float d1 = (ro.y - k) / -rd.y;
 	hit = ro + rd * d1;
 	d1 = (d1 > 0.0 && hit.x * hit.x + hit.z * hit.z <= 1.0) ? d1 : INFINITY; // disk with unit radius
 	
-        if (tc == INFINITY && d0 == INFINITY && d1 == INFINITY)
-                return INFINITY;
+	if (tc == INFINITY && d0 == INFINITY && d1 == INFINITY)
+		return INFINITY;
 
 	vec3 pos;
 	float t = min(min(d0, d1), tc);
-        
+	
 	for (int i = 0; i < 500; i++)
 	{
-                pos = ro + rd * t;
+		pos = ro + rd * t;
 		d = map_Torus(pos, k);
 		if (abs(d) < 0.01) break;
 		t += d;
 	}
 	
-        if (abs(d) < 0.01)
-        {
-                vec2 e = vec2(1.0,-1.0)*0.5773*0.0002;
-                n = ( e.xyy*map_Torus( pos + e.xyy, k ) + 
-                      e.yyx*map_Torus( pos + e.yyx, k ) + 
-                      e.yxy*map_Torus( pos + e.yxy, k ) + 
-                      e.xxx*map_Torus( pos + e.xxx, k ) );
-                return t;
-        }
-        return INFINITY;
+	if (abs(d) < 0.01)
+	{
+		vec2 e = vec2(1.0,-1.0)*0.5773*0.0002;
+		n = ( e.xyy*map_Torus( pos + e.xyy, k ) + 
+		      e.yyx*map_Torus( pos + e.yyx, k ) + 
+		      e.yxy*map_Torus( pos + e.yxy, k ) + 
+		      e.xxx*map_Torus( pos + e.xxx, k ) );
+		return t;
+	}
+	return INFINITY;
 }
 
 `;
@@ -1279,7 +1279,7 @@ out vec4 glFragColor;
 void main(void) // if the scene is static and doesn't have any special requirements, this main() can be used
 {
 
-        vec3 camRight       = vec3( uCameraMatrix[0][0],  uCameraMatrix[0][1],  uCameraMatrix[0][2]);
+	vec3 camRight       = vec3( uCameraMatrix[0][0],  uCameraMatrix[0][1],  uCameraMatrix[0][2]);
 	vec3 camUp          = vec3( uCameraMatrix[1][0],  uCameraMatrix[1][1],  uCameraMatrix[1][2]);
 	vec3 camForward     = vec3( uCameraMatrix[2][0],  uCameraMatrix[2][1],  uCameraMatrix[2][2]);
 	vec3 cameraPosition = vec3( uCameraMatrix[3][0],  uCameraMatrix[3][1],  uCameraMatrix[3][2]);
@@ -1314,7 +1314,7 @@ void main(void) // if the scene is static and doesn't have any special requireme
 	vec3 finalRayDir = normalize(focalPoint - randomAperturePos);
 
 	rayOrigin = cameraPosition + randomAperturePos;
-        rayDirection = finalRayDir;
+	rayDirection = finalRayDir;
 
 	SetupScene();
 
