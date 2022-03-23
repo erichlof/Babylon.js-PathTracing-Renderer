@@ -222,7 +222,7 @@ function init_GUI()
 	};
 
 	hdr_ExposureObject = {
-		HDR_Exposure: 1.0
+		HDR_Exposure: 1.2
 	};
 
 	sun_PowerObject = {
@@ -346,7 +346,7 @@ function init_GUI()
 
 	hdr_ExposureController = gui.add(hdr_ExposureObject, 'HDR_Exposure', 0.05, 3, 0.05).onChange(handleHDRExposureChange);
 
-	sun_PowerController = gui.add(sun_PowerObject, 'Sun_Power', 1, 50, 1).onChange(handleSunPowerChange);
+	sun_PowerController = gui.add(sun_PowerObject, 'Sun_Power', 1, 40, 1).onChange(handleSunPowerChange);
 
 	gltfModel_SelectionController = gui.add(gltfModel_SelectionObject, 'Model_Selection', ['Utah Teapot',
 		'Stanford Bunny', 'Stanford Dragon', 'glTF Duck', 'Damaged Helmet']).onChange(handleGltfModelSelectionChange);
@@ -740,7 +740,7 @@ const uEPS_intersect = 0.01; // value is scene-size dependent
 apertureChangeAmount = 1; // scene specific, depending on scene size dimensions
 focusDistChangeAmount = 1; // scene specific, depending on scene size dimensions
 uModelMaterialType = 3; // enum number code for METAL material - demo starts off with this setting for the glTF/glb model
-uHDRExposure = 1.0; // overall brightness of HDR environment image
+uHDRExposure = 1.2; // overall brightness of HDR environment image
 uSunPower = 20.0; // apparent brightness of the Sun in the HDR (separate from the rest of the sky)
 
 oldCameraMatrix = new BABYLON.Matrix();
