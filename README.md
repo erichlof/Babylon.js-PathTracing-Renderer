@@ -6,15 +6,15 @@ Transformed Quadric Geometry demo: https://erichlof.github.io/Babylon.js-PathTra
 <br>
 
 <br>
-glTF Model Path Tracing demo (temporarily broken, will fix very soon): https://erichlof.github.io/Babylon.js-PathTracing-Renderer/GLTF_Model_Path_Tracing.html 
+glTF Model Path Tracing demo: https://erichlof.github.io/Babylon.js-PathTracing-Renderer/GLTF_Model_Path_Tracing.html 
 <br>
 
 <br>
-Physical Sky Model demo (temporarily broken, will fix very soon): https://erichlof.github.io/Babylon.js-PathTracing-Renderer/Physical_Sky_Model.html 
+Physical Sky Model demo: https://erichlof.github.io/Babylon.js-PathTracing-Renderer/Physical_Sky_Model.html 
 <br>
 
 <br>
-HDRI Environment demo (temporarily broken, will fix very soon): https://erichlof.github.io/Babylon.js-PathTracing-Renderer/HDRI_Environment_Path_Tracing.html 
+HDRI Environment demo: https://erichlof.github.io/Babylon.js-PathTracing-Renderer/HDRI_Environment_Path_Tracing.html 
 <br>
 
 <h3> Note: by request of Babylon.js users, this is a W.I.P. conversion from using three.js as the host engine to using Babylon.js as the host engine behind my custom path tracing shaders.</h3> 
@@ -33,6 +33,8 @@ To see how this all this got started and to follow future progress, take a look 
 <br>
 
 <h2>Progress Updates</h2>
+
+* March 23rd, 2022: Major refactor to entire codebase - now all procedural JavaScript code hopefully reads and flows more naturally on all of the demos' setup files.  Also, I made improvements to the denoiser and updated all the GLSL shaders to reflect these new changes.  With these improvements and optimizations, convergence happens almost instantly!  
 
 * August 30th, 2021: Physical Sky Model has been successfully added - check out the new demo!  I expanded our pathTracingCommon.js library to define and handle various parameters related to realistic sun and sky environment lighting.  Users can easily change the direction (azimuth angle) of the Sun as well as time of day (zenith angle) with the handy dat.gui sliders.  The sky model used is the Preetham Model, which is the industry standard.  There are more sky models to choose from out there, but most require multiple samples through the gas volume of the sky (via ray marching), which gets expensive.  On the other hand, the Preetham Model that we use is an analytic model, and therefore it can give very realistic results with only one sample (ray direction) needed - which is perfect for real time applications.  Another recent update that is repo-wide is the addition of a pixel resolution slider to all demos.  The default resolution is now full resolution (1.0), but can be dialed down if needed to improve framerate, especialy on underpowered devices.  
 
