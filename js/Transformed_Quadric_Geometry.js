@@ -39,7 +39,7 @@ let needChangeRotation = false;
 let needChangeParameterK = false;
 
 let isPaused = true;
-let sceneIsDynamic = false;
+let uSceneIsDynamic = false;
 let camera, oldCameraMatrix, newCameraMatrix;
 let camFlightSpeed; // scene specific, depending on scene size dimensions
 let cameraRecentlyMoving = false;
@@ -75,10 +75,14 @@ let uTime = 0.0; // elapsed time in seconds since the app started
 let uFrameCounter = 1.0; // 1 instead of 0 because it is used as a rng() seed in pathtracing shader
 let uSampleCounter = 0.0; // will get increased by 1 in animation loop before rendering
 let uOneOverSampleCounter = 0.0; // the sample accumulation buffer gets multiplied by this reciprocal of SampleCounter, for averaging final pixel color 
+let uPreviousSampleCount = 0.0; // records the previous frame's sample count, so that if the camera moves after being still, it can multiply the current frame by the reciprocal (1/SamplesCount) 
 let uULen = 1.0; // rendering pixel horizontal scale, related to camera's FOV and aspect ratio
 let uVLen = 1.0; // rendering pixel vertical scale, related to camera's FOV
 let uCameraIsMoving = false; // lets the path tracer know if the camera is being moved
 let uToneMappingExposure = 1.0; // exposure amount when applying Reinhard tonemapping in final stages of pixel colors' output
+let uPixelEdgeSharpness = 1.0; // for dynamic scenes only - if pixel is found to be lying on a border/boundary edge, how sharp should it be? (range: 0.0-1.0)
+let uEdgeSharpenSpeed = 0.05; // applies to edges only - how fast is the blur filter removed from edges?
+let uFilterDecaySpeed = 0.0002; // applies to entire image(edges and non-edges alike) - how fast should the blur filter go away for the entire image?
 
 
 // scene/demo-specific variables;
@@ -179,32 +183,6 @@ if (mouseControl)
 	window.addEventListener('wheel', onMouseWheel, false);
 }
 
-canvas = document.getElementById("renderCanvas");
-
-engine = new BABYLON.Engine(canvas, true);
-
-
-// Create the scene space
-pathTracingScene = new BABYLON.Scene(engine);
-
-// enable browser's mouse pointer lock feature, for free-look camera controlled by mouse movement
-pathTracingScene.onPointerDown = evt =>
-{
-	engine.enterPointerlock();
-}
-
-// setup the frame rate display (FPS) in the top-left corner 
-container = document.getElementById('container');
-
-stats = new Stats();
-stats.domElement.style.position = 'absolute';
-stats.domElement.style.top = '0px';
-stats.domElement.style.cursor = "default";
-stats.domElement.style.webkitUserSelect = "none";
-stats.domElement.style.MozUserSelect = "none";
-container.appendChild(stats.domElement);
-
-
 function handleWindowResize()
 {
 	windowIsBeingResized = true;
@@ -228,7 +206,7 @@ function handleWindowResize()
 function init_GUI()
 {
 	pixel_ResolutionObject = {
-		pixel_Resolution: 1.0
+		pixel_Resolution: 0.75
 	}
 
 	quadLight_LocationObject = {
@@ -339,7 +317,7 @@ function init_GUI()
 
 	gui = new dat.GUI();
 
-	pixel_ResolutionController = gui.add(pixel_ResolutionObject, 'pixel_Resolution', 0.3, 1.0, 0.01).onChange(handlePixelResolutionChange);
+	pixel_ResolutionController = gui.add(pixel_ResolutionObject, 'pixel_Resolution', 0.5, 1.0, 0.05).onChange(handlePixelResolutionChange);
 
 	quadLight_LocationController = gui.add(quadLight_LocationObject, 'QuadLight_Location', ['Ceiling',
 		'Right Wall', 'Left Wall', 'Floor', 'Front Wall', 'Back Wall']).onChange(handleQuadLightLocationChange);
@@ -382,10 +360,43 @@ function init_GUI()
 init_GUI();
 
 
+// setup the frame rate display (FPS) in the top-left corner 
+container = document.getElementById('container');
+
+stats = new Stats();
+stats.domElement.style.position = 'absolute';
+stats.domElement.style.top = '0px';
+stats.domElement.style.cursor = "default";
+stats.domElement.style.webkitUserSelect = "none";
+stats.domElement.style.MozUserSelect = "none";
+container.appendChild(stats.domElement);
+
+
+
+canvas = document.getElementById("renderCanvas");
+
+engine = new BABYLON.Engine(canvas, true);
+
+engine.setHardwareScalingLevel(1.0 / pixel_ResolutionController.getValue());
+engine.resize();
+
+
+// Create the scene space
+pathTracingScene = new BABYLON.Scene(engine);
+
+// enable browser's mouse pointer lock feature, for free-look camera controlled by mouse movement
+pathTracingScene.onPointerDown = evt =>
+{
+	engine.enterPointerlock();
+}
+
 
 // Add a camera to the scene and attach it to the canvas
 camera = new BABYLON.UniversalCamera("Camera", new BABYLON.Vector3(), pathTracingScene);
 camera.attachControl(canvas, true);
+
+uVLen = Math.tan(camera.fov * 0.5);
+uULen = uVLen * (engine.getRenderWidth() / engine.getRenderHeight());
 
 // SCENE/DEMO-SPECIFIC PARAMETERS
 camera.position.set(0, -20, -120);
@@ -498,7 +509,8 @@ screenCopy_eWrapper.onApplyObservable.add(() =>
 const screenOutput_eWrapper = new BABYLON.EffectWrapper({
 	engine: engine,
 	fragmentShader: BABYLON.Effect.ShadersStore["screenOutputFragmentShader"],
-	uniformNames: ["uOneOverSampleCounter", "uToneMappingExposure"],
+	uniformNames: ["uSampleCounter", "uOneOverSampleCounter", "uPixelEdgeSharpness", "uEdgeSharpenSpeed", "uFilterDecaySpeed",
+			"uToneMappingExposure", "uSceneIsDynamic"],
 	samplerNames: ["accumulationBuffer"],
 	name: "screenOutputEffectWrapper"
 });
@@ -506,15 +518,20 @@ const screenOutput_eWrapper = new BABYLON.EffectWrapper({
 screenOutput_eWrapper.onApplyObservable.add(() =>
 {
 	screenOutput_eWrapper.effect.setTexture("accumulationBuffer", pathTracingRenderTarget);
+	screenOutput_eWrapper.effect.setFloat("uSampleCounter", uSampleCounter);
 	screenOutput_eWrapper.effect.setFloat("uOneOverSampleCounter", uOneOverSampleCounter);
+	screenOutput_eWrapper.effect.setFloat("uPixelEdgeSharpness", uPixelEdgeSharpness);
+	screenOutput_eWrapper.effect.setFloat("uEdgeSharpenSpeed", uEdgeSharpenSpeed);
+	screenOutput_eWrapper.effect.setFloat("uFilterDecaySpeed", uFilterDecaySpeed);
 	screenOutput_eWrapper.effect.setFloat("uToneMappingExposure", uToneMappingExposure);
+	screenOutput_eWrapper.effect.setBool("uSceneIsDynamic", uSceneIsDynamic);
 });
 
 // MAIN PATH TRACING EFFECT
 const pathTracing_eWrapper = new BABYLON.EffectWrapper({
 	engine: engine,
 	fragmentShader: BABYLON.Effect.ShadersStore["pathTracingFragmentShader"],
-	uniformNames: ["uResolution", "uRandomVec2", "uULen", "uVLen", "uTime", "uFrameCounter", "uSampleCounter", "uEPS_intersect", "uCameraMatrix", "uApertureSize", "uFocusDistance",
+	uniformNames: ["uResolution", "uRandomVec2", "uULen", "uVLen", "uTime", "uFrameCounter", "uSampleCounter", "uPreviousSampleCount", "uEPS_intersect", "uCameraMatrix", "uApertureSize", "uFocusDistance",
 		"uCameraIsMoving", "uShapeK", "uAllShapesMatType", "uTorusInvMatrix", "uSphereInvMatrix", "uCylinderInvMatrix", "uConeInvMatrix", "uParaboloidInvMatrix", "uHyperboloidInvMatrix",
 		"uCapsuleInvMatrix", "uFlattenedRingInvMatrix", "uBoxInvMatrix", "uPyramidFrustumInvMatrix", "uDiskInvMatrix", "uRectangleInvMatrix", "uQuadLightPlaneSelectionNumber", "uQuadLightRadius"],
 	samplerNames: ["previousBuffer", "blueNoiseTexture"],
@@ -523,9 +540,6 @@ const pathTracing_eWrapper = new BABYLON.EffectWrapper({
 
 pathTracing_eWrapper.onApplyObservable.add(() =>
 {
-	uVLen = Math.tan(camera.fov * 0.5);
-	uULen = uVLen * (width / height);
-
 	pathTracing_eWrapper.effect.setTexture("previousBuffer", screenCopyRenderTarget);
 	pathTracing_eWrapper.effect.setTexture("blueNoiseTexture", blueNoiseTexture);
 	pathTracing_eWrapper.effect.setFloat2("uResolution", pathTracingRenderTarget.getSize().width, pathTracingRenderTarget.getSize().height);
@@ -535,6 +549,7 @@ pathTracing_eWrapper.onApplyObservable.add(() =>
 	pathTracing_eWrapper.effect.setFloat("uTime", uTime);
 	pathTracing_eWrapper.effect.setFloat("uFrameCounter", uFrameCounter);
 	pathTracing_eWrapper.effect.setFloat("uSampleCounter", uSampleCounter);
+	pathTracing_eWrapper.effect.setFloat("uPreviousSampleCount", uPreviousSampleCount);
 	pathTracing_eWrapper.effect.setFloat("uEPS_intersect", uEPS_intersect);
 	pathTracing_eWrapper.effect.setFloat("uApertureSize", uApertureSize);
 	pathTracing_eWrapper.effect.setFloat("uFocusDistance", uFocusDistance);
@@ -597,9 +612,10 @@ engine.runRenderLoop(function ()
 
 	if (needChangePixelResolution)
 	{
-		engine.setHardwareScalingLevel(Math.round(1 / pixel_ResolutionController.getValue()));
+		engine.setHardwareScalingLevel(1.0 / pixel_ResolutionController.getValue());
 
 		handleWindowResize();
+
 		needChangePixelResolution = false;
 	}
 
@@ -933,7 +949,7 @@ engine.runRenderLoop(function ()
 
 	if (!uCameraIsMoving)
 	{
-		if (sceneIsDynamic)
+		if (uSceneIsDynamic)
 			uSampleCounter = 1.0; // reset for continuous updating of image
 		else uSampleCounter += 1.0; // for progressive refinement of image
 
@@ -944,15 +960,20 @@ engine.runRenderLoop(function ()
 
 	if (uCameraIsMoving)
 	{
-		uSampleCounter = 1.0;
 		uFrameCounter += 1.0;
 
 		if (!cameraRecentlyMoving)
 		{
+			// record current uSampleCounter value before it gets set to 1.0 below
+			uPreviousSampleCount = uSampleCounter;
 			uFrameCounter = 1.0;
 			cameraRecentlyMoving = true;
 		}
+
+		uSampleCounter = 1.0;
 	}
+
+	uOneOverSampleCounter = 1.0 / uSampleCounter;
 
 	// update various quadric shapes' inverse matrices
 	uSphereInvMatrix.copyFrom(sphereTransformNode.getWorldMatrix());
@@ -980,7 +1001,6 @@ engine.runRenderLoop(function ()
 	uTorusInvMatrix.copyFrom(torusTransformNode.getWorldMatrix());
 	uTorusInvMatrix.invert();
 
-	uOneOverSampleCounter = 1.0 / uSampleCounter;
 
 	// CAMERA INFO
 	cameraInfoElement.innerHTML = "FOV( mousewheel ): " + (camera.fov * 180 / Math.PI).toFixed(0) + "<br>" + "Aperture( [ and ] ): " + uApertureSize.toFixed(1) +
