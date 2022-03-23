@@ -157,8 +157,7 @@ void SceneIntersect( vec3 rayOrigin, vec3 rayDirection, out float hitT, out vec3
 	if (d < hitT)
 	{
 		hitT = d;
-		hitNormal = normalize(n);
-		hitNormal = normalize(transpose(mat3(uLeftSphereInvMatrix)) * hitNormal);
+		hitNormal = transpose(mat3(uLeftSphereInvMatrix)) * n;
 		hitColor = spheres[0].color;
 		hitType = spheres[0].type;
 		hitObjectID = float(objectCount);
@@ -174,8 +173,7 @@ void SceneIntersect( vec3 rayOrigin, vec3 rayDirection, out float hitT, out vec3
 	if (d < hitT)
 	{
 		hitT = d;
-		hitNormal = normalize(n);
-		hitNormal = normalize(transpose(mat3(uRightSphereInvMatrix)) * hitNormal);
+		hitNormal = transpose(mat3(uRightSphereInvMatrix)) * n;
 		hitColor = spheres[1].color;
 		hitType = spheres[1].type;
 		hitObjectID = float(objectCount);
@@ -189,7 +187,7 @@ void SceneIntersect( vec3 rayOrigin, vec3 rayDirection, out float hitT, out vec3
 		if (d < hitT)
 		{
 			hitT = d;
-			hitNormal = normalize(quads[i].normal);
+			hitNormal = quads[i].normal;
 			hitColor = quads[i].color;
 			hitType = quads[i].type;
 			hitObjectID = float(objectCount);
@@ -330,9 +328,9 @@ void SceneIntersect( vec3 rayOrigin, vec3 rayDirection, out float hitT, out vec3
 		hitUV = triangleW * vec2(vd4.zw) + triangleU * vec2(vd5.xy) + triangleV * vec2(vd5.zw);
 		n = uModelUsesBumpTexture ? perturbNormal(n, vec2(1.0, 1.0), hitUV) : n;
 		// transform normal back into world space
-		hitNormal = normalize(transpose(mat3(uGLTF_Model_InvMatrix)) * n);
+		hitNormal = transpose(mat3(uGLTF_Model_InvMatrix)) * n;
 
-		//hitType = int(vd6.x);
+		//hitType = DIFFUSE;//int(vd6.x);
 		hitType = uModelUsesAlbedoTexture ? PBR_MATERIAL : uModelMaterialType;
 
 		hitColor = vec3(1);//vd6.yzw;
@@ -396,7 +394,7 @@ vec3 CalculateRadiance( out vec3 objectNormal, out vec3 objectColor, out float o
 
 		// useful data
 		n = normalize(hitNormal);
-                nl = dot(n, rayDirection) < 0.0 ? normalize(n) : normalize(-n);
+                nl = dot(n, rayDirection) < 0.0 ? n : -n;
 		x = rayOrigin + rayDirection * hitT;
 
 		if (bounces == 0)
@@ -471,6 +469,7 @@ vec3 CalculateRadiance( out vec3 objectNormal, out vec3 objectColor, out float o
 
 			if (diffuseCount == 1 && blueNoise_rand() < 0.5)
 			{
+				mask *= 2.0;
 				// choose random Diffuse sample vector
 				rayDirection = randomCosWeightedDirectionInHemisphere(nl);
 				rayOrigin = x + nl * uEPS_intersect;
@@ -478,6 +477,7 @@ vec3 CalculateRadiance( out vec3 objectNormal, out vec3 objectColor, out float o
 			}
 
 			dirToLight = sampleAxisAlignedQuadLight(x, nl, quads[5], weight);
+			mask *= diffuseCount == 1 ? 2.0 : 1.0;
 			mask *= weight;
 
 			rayDirection = dirToLight;
@@ -502,12 +502,7 @@ vec3 CalculateRadiance( out vec3 objectNormal, out vec3 objectColor, out float o
 
 		if (hitType == TRANSPARENT)  // Ideal dielectric specular reflection/refraction
 		{
-			if (diffuseCount == 0 && !coatTypeIntersected && !uCameraIsMoving )
-				pixelSharpness = 1.01;
-			else if (diffuseCount > 0)
-				pixelSharpness = 0.0;
-			else
-				pixelSharpness = -1.0;
+			pixelSharpness = diffuseCount == 0 ? -1.0 : pixelSharpness;
 			
 			nc = 1.0; // IOR of Air
 			nt = 1.5; // IOR of common Glass
@@ -553,8 +548,6 @@ vec3 CalculateRadiance( out vec3 objectNormal, out vec3 objectColor, out float o
 		{
 			coatTypeIntersected = true;
 
-			pixelSharpness = 0.0;
-
 			nc = 1.0; // IOR of Air
 			nt = 1.4; // IOR of Clear Coat
 			Re = calcFresnelReflectance(rayDirection, nl, nc, nt, ratioIoR);
@@ -565,9 +558,6 @@ vec3 CalculateRadiance( out vec3 objectNormal, out vec3 objectColor, out float o
 
 			if (blueNoise_rand() < P)
 			{
-				if (diffuseCount == 0)
-					pixelSharpness = uFrameCounter > 500.0 ? 1.01 : -1.0;
-
 				mask *= RP;
 				rayDirection = reflect(rayDirection, nl); // reflect ray from surface
 				rayOrigin = x + nl * uEPS_intersect;
@@ -582,6 +572,7 @@ vec3 CalculateRadiance( out vec3 objectNormal, out vec3 objectColor, out float o
 
 			if (diffuseCount == 1 && blueNoise_rand() < 0.5)
 			{
+				mask *= 2.0;
 				// choose random Diffuse sample vector
 				rayDirection = randomCosWeightedDirectionInHemisphere(nl);
 				rayOrigin = x + nl * uEPS_intersect;
@@ -589,6 +580,7 @@ vec3 CalculateRadiance( out vec3 objectNormal, out vec3 objectColor, out float o
 			}
 
 			dirToLight = sampleAxisAlignedQuadLight(x, nl, quads[5], weight);
+			mask *= diffuseCount == 1 ? 2.0 : 1.0;
 			mask *= weight;
 
 			rayDirection = dirToLight;
@@ -613,7 +605,7 @@ vec3 CalculateRadiance( out vec3 objectNormal, out vec3 objectColor, out float o
 void SetupScene(void)
 //--------------------------------------------------------------------------------------------------
 {
-	vec3 light_emissionColor = vec3(1.0, 1.0, 1.0) * 10.0; // Bright white light
+	vec3 light_emissionColor = vec3(1.0, 1.0, 1.0) * 5.0; // Bright white light
 
 	float wallRadius = 50.0;
 	float lightRadius = uQuadLightRadius * 0.2;
