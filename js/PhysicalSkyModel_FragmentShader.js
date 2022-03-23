@@ -67,8 +67,7 @@ void SceneIntersect( vec3 rayOrigin, vec3 rayDirection, out float hitT, out vec3
 	if (d < hitT)
 	{
 		hitT = d;
-		hitNormal = normalize(n);
-		hitNormal = normalize(transpose(mat3(uLeftSphereInvMatrix)) * hitNormal);
+		hitNormal = transpose(mat3(uLeftSphereInvMatrix)) * n;
 		hitColor = spheres[0].color;
 		hitType = spheres[0].type;
 		hitObjectID = float(objectCount);
@@ -84,8 +83,7 @@ void SceneIntersect( vec3 rayOrigin, vec3 rayDirection, out float hitT, out vec3
 	if (d < hitT)
 	{
 		hitT = d;
-		hitNormal = normalize(n);
-		hitNormal = normalize(transpose(mat3(uRightSphereInvMatrix)) * hitNormal);
+		hitNormal = transpose(mat3(uRightSphereInvMatrix)) * n;
 		hitColor = spheres[1].color;
 		hitType = spheres[1].type;
 		hitObjectID = float(objectCount);
@@ -101,7 +99,7 @@ void SceneIntersect( vec3 rayOrigin, vec3 rayDirection, out float hitT, out vec3
 		if (d < hitT)
 		{
 			hitT = d;
-			hitNormal = normalize(quads[i].normal);
+			hitNormal = quads[i].normal;
 			hitColor = quads[i].color;
 			hitType = quads[i].type;
 			hitObjectID = float(objectCount);
@@ -195,7 +193,7 @@ vec3 CalculateRadiance( out vec3 objectNormal, out vec3 objectColor, out float o
 
 		// useful data
 		n = normalize(hitNormal);
-                nl = dot(n, rayDirection) < 0.0 ? normalize(n) : normalize(-n);
+                nl = dot(n, rayDirection) < 0.0 ? n : -n;
 		x = rayOrigin + rayDirection * hitT;
 
 		if (bounces == 0)
@@ -241,6 +239,7 @@ vec3 CalculateRadiance( out vec3 objectNormal, out vec3 objectColor, out float o
 
 			if (diffuseCount == 1 && blueNoise_rand() < 0.5)
 			{
+				mask *= 2.0;
 				// choose random Diffuse sample vector
 				rayDirection = randomCosWeightedDirectionInHemisphere(nl);
 				rayOrigin = x + nl * uEPS_intersect;
@@ -251,6 +250,7 @@ vec3 CalculateRadiance( out vec3 objectNormal, out vec3 objectColor, out float o
 			rayOrigin = x + nl * uEPS_intersect;
 			
 			weight = max(0.0, dot(rayDirection, nl)) * 0.05; // down-weight directSunLight contribution
+			mask *= diffuseCount == 1 ? 2.0 : 1.0;
 			mask *= weight;
 
 			sampleLight = true;
@@ -272,12 +272,7 @@ vec3 CalculateRadiance( out vec3 objectNormal, out vec3 objectColor, out float o
 
 		if (hitType == TRANSPARENT)  // Ideal dielectric specular reflection/refraction
 		{
-			if (diffuseCount == 0 && !coatTypeIntersected && !uCameraIsMoving )
-				pixelSharpness = 1.01;
-			else if (diffuseCount > 0)
-				pixelSharpness = 0.0;
-			else
-				pixelSharpness = -1.0;
+			pixelSharpness = diffuseCount == 0 ? -1.0 : pixelSharpness;
 			
 			nc = 1.0; // IOR of Air
 			nt = 1.5; // IOR of common Glass
@@ -323,8 +318,6 @@ vec3 CalculateRadiance( out vec3 objectNormal, out vec3 objectColor, out float o
 		{
 			coatTypeIntersected = true;
 
-			pixelSharpness = 0.0;
-
 			nc = 1.0; // IOR of Air
 			nt = 1.4; // IOR of Clear Coat
 			Re = calcFresnelReflectance(rayDirection, nl, nc, nt, ratioIoR);
@@ -335,9 +328,6 @@ vec3 CalculateRadiance( out vec3 objectNormal, out vec3 objectColor, out float o
 
 			if (blueNoise_rand() < P)
 			{
-				if (diffuseCount == 0)
-					pixelSharpness = uFrameCounter > 500.0 ? 1.01 : -1.0;
-
 				mask *= RP;
 				rayDirection = reflect(rayDirection, nl); // reflect ray from surface
 				rayOrigin = x + nl * uEPS_intersect;
@@ -352,6 +342,7 @@ vec3 CalculateRadiance( out vec3 objectNormal, out vec3 objectColor, out float o
 
 			if (diffuseCount == 1 && blueNoise_rand() < 0.5)
 			{
+				mask *= 2.0;
 				// choose random Diffuse sample vector
 				rayDirection = randomCosWeightedDirectionInHemisphere(nl);
 				rayOrigin = x + nl * uEPS_intersect;
@@ -362,6 +353,7 @@ vec3 CalculateRadiance( out vec3 objectNormal, out vec3 objectColor, out float o
 			rayOrigin = x + nl * uEPS_intersect;
 			
 			weight = max(0.0, dot(rayDirection, nl)) * 0.05; // down-weight directSunLight contribution
+			mask *= diffuseCount == 1 ? 2.0 : 1.0;
 			mask *= weight;
 
 			// this check helps keep random noisy bright pixels from this clearCoat diffuse surface out of the possible previous refracted glass surface
@@ -383,7 +375,7 @@ vec3 CalculateRadiance( out vec3 objectNormal, out vec3 objectColor, out float o
 void SetupScene(void)
 //-------------------------------------------------------------------------------------------------
 {
-	vec3 light_emissionColor = vec3(1.0, 1.0, 1.0) * 10.0; // Bright white light
+	vec3 light_emissionColor = vec3(1.0, 1.0, 1.0) * 5.0; // Bright white light
 
 	float wallRadius = 50.0;
 
