@@ -491,7 +491,7 @@ const screenCopyRenderTarget = new BABYLON.RenderTargetTexture("screenCopyRender
 const eRenderer = new BABYLON.EffectRenderer(engine);
 
 // SCREEN COPY EFFECT
-const screenCopy_eWrapper = new BABYLON.EffectWrapper({
+const screenCopyEffect = new BABYLON.EffectWrapper({
 	engine: engine,
 	fragmentShader: BABYLON.Effect.ShadersStore["screenCopyFragmentShader"],
 	uniformNames: [],
@@ -499,13 +499,13 @@ const screenCopy_eWrapper = new BABYLON.EffectWrapper({
 	name: "screenCopyEffectWrapper"
 });
 
-screenCopy_eWrapper.onApplyObservable.add(() =>
+screenCopyEffect.onApplyObservable.add(() =>
 {
-	screenCopy_eWrapper.effect.setTexture("pathTracedImageBuffer", pathTracingRenderTarget);
+	screenCopyEffect.effect.setTexture("pathTracedImageBuffer", pathTracingRenderTarget);
 });
 
 // SCREEN OUTPUT EFFECT
-const screenOutput_eWrapper = new BABYLON.EffectWrapper({
+const screenOutputEffect = new BABYLON.EffectWrapper({
 	engine: engine,
 	fragmentShader: BABYLON.Effect.ShadersStore["screenOutputFragmentShader"],
 	uniformNames: ["uSampleCounter", "uOneOverSampleCounter", "uPixelEdgeSharpness", "uEdgeSharpenSpeed", "uFilterDecaySpeed",
@@ -514,20 +514,20 @@ const screenOutput_eWrapper = new BABYLON.EffectWrapper({
 	name: "screenOutputEffectWrapper"
 });
 
-screenOutput_eWrapper.onApplyObservable.add(() =>
+screenOutputEffect.onApplyObservable.add(() =>
 {
-	screenOutput_eWrapper.effect.setTexture("accumulationBuffer", pathTracingRenderTarget);
-	screenOutput_eWrapper.effect.setFloat("uSampleCounter", uSampleCounter);
-	screenOutput_eWrapper.effect.setFloat("uOneOverSampleCounter", uOneOverSampleCounter);
-	screenOutput_eWrapper.effect.setFloat("uPixelEdgeSharpness", uPixelEdgeSharpness);
-	screenOutput_eWrapper.effect.setFloat("uEdgeSharpenSpeed", uEdgeSharpenSpeed);
-	screenOutput_eWrapper.effect.setFloat("uFilterDecaySpeed", uFilterDecaySpeed);
-	screenOutput_eWrapper.effect.setFloat("uToneMappingExposure", uToneMappingExposure);
-	screenOutput_eWrapper.effect.setBool("uSceneIsDynamic", uSceneIsDynamic);
+	screenOutputEffect.effect.setTexture("accumulationBuffer", pathTracingRenderTarget);
+	screenOutputEffect.effect.setFloat("uSampleCounter", uSampleCounter);
+	screenOutputEffect.effect.setFloat("uOneOverSampleCounter", uOneOverSampleCounter);
+	screenOutputEffect.effect.setFloat("uPixelEdgeSharpness", uPixelEdgeSharpness);
+	screenOutputEffect.effect.setFloat("uEdgeSharpenSpeed", uEdgeSharpenSpeed);
+	screenOutputEffect.effect.setFloat("uFilterDecaySpeed", uFilterDecaySpeed);
+	screenOutputEffect.effect.setFloat("uToneMappingExposure", uToneMappingExposure);
+	screenOutputEffect.effect.setBool("uSceneIsDynamic", uSceneIsDynamic);
 });
 
 // MAIN PATH TRACING EFFECT
-const pathTracing_eWrapper = new BABYLON.EffectWrapper({
+const pathTracingEffect = new BABYLON.EffectWrapper({
 	engine: engine,
 	fragmentShader: BABYLON.Effect.ShadersStore["pathTracingFragmentShader"],
 	uniformNames: ["uResolution", "uRandomVec2", "uULen", "uVLen", "uTime", "uFrameCounter", "uSampleCounter", "uPreviousSampleCount", "uEPS_intersect", "uCameraMatrix", "uApertureSize", "uFocusDistance",
@@ -537,39 +537,39 @@ const pathTracing_eWrapper = new BABYLON.EffectWrapper({
 	name: "pathTracingEffectWrapper"
 });
 
-pathTracing_eWrapper.onApplyObservable.add(() =>
+pathTracingEffect.onApplyObservable.add(() =>
 {
-	pathTracing_eWrapper.effect.setTexture("previousBuffer", screenCopyRenderTarget);
-	pathTracing_eWrapper.effect.setTexture("blueNoiseTexture", blueNoiseTexture);
-	pathTracing_eWrapper.effect.setFloat2("uResolution", pathTracingRenderTarget.getSize().width, pathTracingRenderTarget.getSize().height);
-	pathTracing_eWrapper.effect.setFloat2("uRandomVec2", uRandomVec2.x, uRandomVec2.y);
-	pathTracing_eWrapper.effect.setFloat("uULen", uULen);
-	pathTracing_eWrapper.effect.setFloat("uVLen", uVLen);
-	pathTracing_eWrapper.effect.setFloat("uTime", uTime);
-	pathTracing_eWrapper.effect.setFloat("uFrameCounter", uFrameCounter);
-	pathTracing_eWrapper.effect.setFloat("uSampleCounter", uSampleCounter);
-	pathTracing_eWrapper.effect.setFloat("uPreviousSampleCount", uPreviousSampleCount);
-	pathTracing_eWrapper.effect.setFloat("uEPS_intersect", uEPS_intersect);
-	pathTracing_eWrapper.effect.setFloat("uApertureSize", uApertureSize);
-	pathTracing_eWrapper.effect.setFloat("uFocusDistance", uFocusDistance);
-	pathTracing_eWrapper.effect.setFloat("uQuadLightPlaneSelectionNumber", uQuadLightPlaneSelectionNumber);
-	pathTracing_eWrapper.effect.setFloat("uQuadLightRadius", uQuadLightRadius);
-	pathTracing_eWrapper.effect.setFloat("uShapeK", uShapeK);
-	pathTracing_eWrapper.effect.setInt("uAllShapesMatType", uAllShapesMatType);
-	pathTracing_eWrapper.effect.setBool("uCameraIsMoving", uCameraIsMoving);
-	pathTracing_eWrapper.effect.setMatrix("uCameraMatrix", camera.getWorldMatrix());
-	pathTracing_eWrapper.effect.setMatrix("uSphereInvMatrix", uSphereInvMatrix);
-	pathTracing_eWrapper.effect.setMatrix("uCylinderInvMatrix", uCylinderInvMatrix);
-	pathTracing_eWrapper.effect.setMatrix("uConeInvMatrix", uConeInvMatrix);
-	pathTracing_eWrapper.effect.setMatrix("uParaboloidInvMatrix", uParaboloidInvMatrix);
-	pathTracing_eWrapper.effect.setMatrix("uHyperboloidInvMatrix", uHyperboloidInvMatrix);
-	pathTracing_eWrapper.effect.setMatrix("uCapsuleInvMatrix", uCapsuleInvMatrix);
-	pathTracing_eWrapper.effect.setMatrix("uFlattenedRingInvMatrix", uFlattenedRingInvMatrix);
-	pathTracing_eWrapper.effect.setMatrix("uBoxInvMatrix", uBoxInvMatrix);
-	pathTracing_eWrapper.effect.setMatrix("uPyramidFrustumInvMatrix", uPyramidFrustumInvMatrix);
-	pathTracing_eWrapper.effect.setMatrix("uDiskInvMatrix", uDiskInvMatrix);
-	pathTracing_eWrapper.effect.setMatrix("uRectangleInvMatrix", uRectangleInvMatrix);
-	pathTracing_eWrapper.effect.setMatrix("uTorusInvMatrix", uTorusInvMatrix);
+	pathTracingEffect.effect.setTexture("previousBuffer", screenCopyRenderTarget);
+	pathTracingEffect.effect.setTexture("blueNoiseTexture", blueNoiseTexture);
+	pathTracingEffect.effect.setFloat2("uResolution", pathTracingRenderTarget.getSize().width, pathTracingRenderTarget.getSize().height);
+	pathTracingEffect.effect.setFloat2("uRandomVec2", uRandomVec2.x, uRandomVec2.y);
+	pathTracingEffect.effect.setFloat("uULen", uULen);
+	pathTracingEffect.effect.setFloat("uVLen", uVLen);
+	pathTracingEffect.effect.setFloat("uTime", uTime);
+	pathTracingEffect.effect.setFloat("uFrameCounter", uFrameCounter);
+	pathTracingEffect.effect.setFloat("uSampleCounter", uSampleCounter);
+	pathTracingEffect.effect.setFloat("uPreviousSampleCount", uPreviousSampleCount);
+	pathTracingEffect.effect.setFloat("uEPS_intersect", uEPS_intersect);
+	pathTracingEffect.effect.setFloat("uApertureSize", uApertureSize);
+	pathTracingEffect.effect.setFloat("uFocusDistance", uFocusDistance);
+	pathTracingEffect.effect.setFloat("uQuadLightPlaneSelectionNumber", uQuadLightPlaneSelectionNumber);
+	pathTracingEffect.effect.setFloat("uQuadLightRadius", uQuadLightRadius);
+	pathTracingEffect.effect.setFloat("uShapeK", uShapeK);
+	pathTracingEffect.effect.setInt("uAllShapesMatType", uAllShapesMatType);
+	pathTracingEffect.effect.setBool("uCameraIsMoving", uCameraIsMoving);
+	pathTracingEffect.effect.setMatrix("uCameraMatrix", camera.getWorldMatrix());
+	pathTracingEffect.effect.setMatrix("uSphereInvMatrix", uSphereInvMatrix);
+	pathTracingEffect.effect.setMatrix("uCylinderInvMatrix", uCylinderInvMatrix);
+	pathTracingEffect.effect.setMatrix("uConeInvMatrix", uConeInvMatrix);
+	pathTracingEffect.effect.setMatrix("uParaboloidInvMatrix", uParaboloidInvMatrix);
+	pathTracingEffect.effect.setMatrix("uHyperboloidInvMatrix", uHyperboloidInvMatrix);
+	pathTracingEffect.effect.setMatrix("uCapsuleInvMatrix", uCapsuleInvMatrix);
+	pathTracingEffect.effect.setMatrix("uFlattenedRingInvMatrix", uFlattenedRingInvMatrix);
+	pathTracingEffect.effect.setMatrix("uBoxInvMatrix", uBoxInvMatrix);
+	pathTracingEffect.effect.setMatrix("uPyramidFrustumInvMatrix", uPyramidFrustumInvMatrix);
+	pathTracingEffect.effect.setMatrix("uDiskInvMatrix", uDiskInvMatrix);
+	pathTracingEffect.effect.setMatrix("uRectangleInvMatrix", uRectangleInvMatrix);
+	pathTracingEffect.effect.setMatrix("uTorusInvMatrix", uTorusInvMatrix);
 });
 
 
@@ -1008,12 +1008,12 @@ engine.runRenderLoop(function ()
 	// the following is necessary to update the user's world camera movement - should take no time at all
 	pathTracingScene.render();
 	// now for the heavy lifter, the bulk of the frame time
-	eRenderer.render(pathTracing_eWrapper, pathTracingRenderTarget);
+	eRenderer.render(pathTracingEffect, pathTracingRenderTarget);
 	// then simply copy(store) what the pathTracer just calculated - should take no time at all
-	eRenderer.render(screenCopy_eWrapper, screenCopyRenderTarget);
+	eRenderer.render(screenCopyEffect, screenCopyRenderTarget);
 	// finally take the accumulated pathTracingRenderTarget buffer and average by numberOfSamples taken, then apply Reinhard tonemapping (brings image into friendly 0.0-1.0 rgb color float range),
 	// and lastly raise to the power of (0.4545), in order to make gamma correction (gives more brightness range where it counts).  This last step should also take minimal time
-	eRenderer.render(screenOutput_eWrapper, null); // null, because we don't feed this non-linear image-processed output back into the pathTracing accumulation buffer as it would 'pollute' the pathtracing unbounded linear color space
+	eRenderer.render(screenOutputEffect, null); // null, because we don't feed this non-linear image-processed output back into the pathTracing accumulation buffer as it would 'pollute' the pathtracing unbounded linear color space
 
 	stats.update();
 }); // end engine.runRenderLoop(function ()
