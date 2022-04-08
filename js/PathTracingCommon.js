@@ -547,7 +547,7 @@ vec3 randomCosWeightedDirectionInHemisphere(vec3 nl) // required for all diffuse
 	float y = r * sin(phi);
 	float z = sqrt(1.0 - x*x - y*y);
 	
-	vec3 U = normalize( cross( abs(nl.y) < 0.9 ? vec3(0, 1, 0) : vec3(1, 0, 0), nl ) );
+	vec3 U = normalize( cross( abs(nl.y) < 0.9 ? vec3(0, 1, 0) : vec3(0, 0,-1), nl ) );
 	vec3 V = cross(nl, U);
 	return normalize(x * U + y * V + z * nl);
 }
@@ -560,7 +560,7 @@ vec3 randomDirectionInSpecularLobe(vec3 reflectionDir, float roughness) // for m
 	float sinTheta = sqrt(max(0.0, 1.0 - cosTheta * cosTheta));
 	float phi = rng() * TWO_PI;
 	
-	vec3 U = normalize( cross( abs(reflectionDir.y) < 0.9 ? vec3(0, 1, 0) : vec3(1, 0, 0), reflectionDir ) );
+	vec3 U = normalize( cross( abs(reflectionDir.y) < 0.9 ? vec3(0, 1, 0) : vec3(0, 0,-1), reflectionDir ) );
 	vec3 V = cross(reflectionDir, U);
 	return normalize(mix(reflectionDir, (U * cos(phi) * sinTheta + V * sin(phi) * sinTheta + reflectionDir * cosTheta), roughness));
 }
@@ -635,7 +635,7 @@ vec3 sampleSphereLight(vec3 x, vec3 nl, Sphere light, out float weight) // requi
 	float phi = rng() * TWO_PI;
 	dirToLight = normalize(dirToLight);
 	
-	vec3 U = normalize( cross( abs(dirToLight.y) < 0.9 ? vec3(0, 1, 0) : vec3(1, 0, 0), dirToLight ) );
+	vec3 U = normalize( cross( abs(dirToLight.y) < 0.9 ? vec3(0, 1, 0) : vec3(0, 0,-1), dirToLight ) );
 	vec3 V = cross(dirToLight, U);
 	
 	vec3 sampleDir = normalize(U * cos(phi) * sin_alpha + V * sin(phi) * sin_alpha + dirToLight * cos_alpha);
