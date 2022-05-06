@@ -4,70 +4,73 @@
 </html>
 
 <head>
-        <title>Babylon PathTracing Renderer - glTF Models</title>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1">
+	<title>Babylon PathTracing Renderer - glTF Models</title>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1">
 
-        <style>
-                html,
-                body {
-                        overflow: hidden;
-                        width: 100%;
-                        height: 100%;
-                        margin: 0;
-                        padding: 0;
-                }
+	<style>
+		html,
+		body {
+			overflow: hidden;
+			width: 100%;
+			height: 100%;
+			margin: 0;
+			padding: 0;
+		}
 
-                #renderCanvas {
-                        width: 100%;
-                        height: 100%;
-                        touch-action: none;
-                }
-        </style>
+		#renderCanvas {
+			width: 100%;
+			height: 100%;
+			touch-action: none;
+		}
+	</style>
 
 </head>
 
 <body>
 
-        <canvas id="renderCanvas" touch-action="none"></canvas> <!-- touch-action="none" for best results from PEP -->
+	<canvas id="renderCanvas" touch-action="none"></canvas> <!-- touch-action="none" for best results from PEP -->
 
-        <div id="container"> </div>
+	<div id="container"> </div>
 
-        <div id="info"
-                style="position:fixed; top:5px; width:100%; text-align:center; font-family:monospace; font-size:medium; color:rgb(255,255,255);">
-                Babylon.js PathTracing Renderer - glTF Models
-        </div>
+	<div id="info"
+		style="position:fixed; top:5px; width:100%; text-align:center; font-family:monospace; font-size:medium; color:rgb(255,255,255);">
+		Babylon.js PathTracing Renderer - glTF Models
+	</div>
 
-        <div id="cameraInfo"
-                style="position:fixed; left:1%; bottom:2%; font-family:monospace; font-size:large; color:rgb(200,200,200);">
-        </div>
+	<div id="cameraInfo"
+		style="position:fixed; left:1%; bottom:2%; font-family:monospace; font-size:large; color:rgb(200,200,200);">
+	</div>
 
-        <!-- use this uncompressed version of the library while debugging -->
-        <!-- <script src="js/babylon.max.js"></script> -->
+	<!-- use this uncompressed version of the library while debugging -->
+	<!-- <script src="js/babylon.max.js"></script> -->
 
-        <!-- use this minified version of the library for deployment -->
-        <script src="js/babylon.js"></script>
+	<!-- use this minified version of the library for deployment -->
+	<script src="js/babylon.js"></script>
 
-        <!-- use this minified version of the glTF loader for deployment -->
-        <script src="js/babylon.glTFFileLoader.min.js"></script>
+	<!-- use this minified version of the glTF loader for deployment -->
+	<script src="js/babylon.glTFFileLoader.min.js"></script>
 
-        <!-- this file is for displaying the framerate(FPS) in the top-left corner of the webpage -->
-        <script src="js/stats.min.js"> </script>
+	<!-- this file is for displaying the framerate(FPS) in the top-left corner of the webpage -->
+	<script src="js/stats.min.js"> </script>
 
-        <!-- this file is for including an interactive GUI menu system in the top-right corner of the webpage -->
-        <script src='js/dat.gui.min.js'></script>
+	<!-- this file is for including an interactive GUI menu system in the top-right corner of the webpage -->
+	<script src='js/dat.gui.min.js'></script>
 
-        <!-- this is the required file for quickly building a BVH acceleration structure from an arbitrary list of all model's triangle AABBs (originally in glTF format) -->
-        <script src="js/BVH_Fast_Builder.js"> </script>
+	<!-- this is the required file for quickly building a BVH acceleration structure from an arbitrary list of all model's triangle AABBs (originally in glTF format) -->
+	<!-- <script src="js/BVH_Fast_Builder.js"> </script> -->
 
-        <!-- this is the required file containing our GLSL path tracing library constants, variables, and utility functions, as well as the common GLSL fragment shaders-->
-        <script src="js/PathTracingCommon.js"> </script>
+	<!-- this is the required file for using the SAH strategy to build a high-quality BVH acceleration structure from an arbitrary list of all model's triangle AABBs -->
+	<script src="js/BVH_SAH_Quality_Builder.js"> </script>
 
-        <!-- this is the required file containing the demo/scene-specific GLSL fragment shader for each individual scene -->
-        <script src="js/GLTFModelPathTracing_FragmentShader.js"> </script>
+	<!-- this is the required file containing our GLSL path tracing library constants, variables, and utility functions, as well as the common GLSL fragment shaders-->
+	<script src="js/PathTracingCommon.js"> </script>
 
-        <!-- this is the required demo/scene-specific .js file for setting up each pathtraced scene -->
-        <script src="js/GLTF_Model_Path_Tracing.js"> </script>
+	<!-- this is the required file containing the demo/scene-specific GLSL fragment shader for each individual scene -->
+	<script src="js/GLTFModelPathTracing_FragmentShader.js"> </script>
+
+	<!-- this is the required demo/scene-specific .js file for setting up each pathtraced scene -->
+	<script src="js/GLTF_Model_Path_Tracing.js"> </script>
 
 </body>
 
