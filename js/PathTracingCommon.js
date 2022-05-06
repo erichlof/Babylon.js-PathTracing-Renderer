@@ -1279,10 +1279,10 @@ out vec4 glFragColor;
 void main(void) // if the scene is static and doesn't have any special requirements, this main() can be used
 {
 
-	vec3 camRight       = vec3( uCameraMatrix[0][0],  uCameraMatrix[0][1],  uCameraMatrix[0][2]);
-	vec3 camUp          = vec3( uCameraMatrix[1][0],  uCameraMatrix[1][1],  uCameraMatrix[1][2]);
-	vec3 camForward     = vec3( uCameraMatrix[2][0],  uCameraMatrix[2][1],  uCameraMatrix[2][2]);
-	vec3 cameraPosition = vec3( uCameraMatrix[3][0],  uCameraMatrix[3][1],  uCameraMatrix[3][2]);
+	vec3 camRight       = vec3( uCameraMatrix[0][0], uCameraMatrix[0][1], uCameraMatrix[0][2]);
+	vec3 camUp          = vec3( uCameraMatrix[1][0], uCameraMatrix[1][1], uCameraMatrix[1][2]);
+	vec3 camForward     = vec3( uCameraMatrix[2][0], uCameraMatrix[2][1], uCameraMatrix[2][2]);
+	vec3 cameraPosition = vec3( uCameraMatrix[3][0], uCameraMatrix[3][1], uCameraMatrix[3][2]);
 
 	// calculate unique seed for rng() function (a high-quality pseudo-random number generator for the GPU by 'iq' on ShaderToy)
 	seed = uvec2(uFrameCounter, uFrameCounter + 1.0) * uvec2(gl_FragCoord);
