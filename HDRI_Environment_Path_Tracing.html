@@ -58,7 +58,10 @@
 	<script src='js/dat.gui.min.js'></script>
 
 	<!-- this is the required file for quickly building a BVH acceleration structure from an arbitrary list of all model's triangle AABBs (originally in glTF format) -->
-	<script src="js/BVH_Fast_Builder.js"> </script>
+	<!-- <script src="js/BVH_Fast_Builder.js"> </script> -->
+	
+	<!-- this is the required file for using the SAH strategy to build a high-quality BVH acceleration structure from an arbitrary list of all model's triangle AABBs -->
+	<script src="js/BVH_SAH_Quality_Builder.js"> </script>
 
 	<!-- this is the required file containing our GLSL path tracing library constants, variables, and utility functions, as well as the common GLSL fragment shaders-->
 	<script src="js/PathTracingCommon.js"> </script>
