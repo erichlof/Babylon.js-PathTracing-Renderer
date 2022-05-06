@@ -737,7 +737,7 @@ apertureChangeAmount = 1; // scene specific, depending on scene size dimensions
 focusDistChangeAmount = 1; // scene specific, depending on scene size dimensions
 uModelMaterialType = 3; // enum number code for METAL material - demo starts off with this setting for the glTF/glb model
 uHDRExposure = 1.2; // overall brightness of HDR environment image
-uSunPower = 20.0; // apparent brightness of the Sun in the HDR (separate from the rest of the sky)
+uSunPower = 10.0; // apparent brightness of the Sun in the HDR (separate from the rest of the sky)
 
 oldCameraMatrix = new BABYLON.Matrix();
 newCameraMatrix = new BABYLON.Matrix();
@@ -760,7 +760,7 @@ rightSphereTransformNode.scaling.set(sphereRadius, sphereRadius, sphereRadius);
 uRightSphereInvMatrix.copyFrom(rightSphereTransformNode.getWorldMatrix());
 uRightSphereInvMatrix.invert();
 
-gltfModelTransformNode.rotation.set(0, Math.PI, 0);
+
 gltfModelTransformNode.scaling.set(0, 0, 0); // temporarily makes model invisible while it is being loaded and prepared
 
 
