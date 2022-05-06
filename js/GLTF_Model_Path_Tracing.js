@@ -97,7 +97,6 @@ let modelNameAndExtension = "";
 let containerMeshes = [];
 let pathTracedMesh;
 let modelInitialScale = 1;
-let modelWasDefinedInRHCoordSystem = true;
 let total_number_of_triangles = 0;
 let totalWork;
 let albedoTexture, bumpTexture, metallicTexture, emissiveTexture;
@@ -543,8 +542,8 @@ function Prepare_Model_For_PathTracing()
 		if (modelHasUVs)
 		{
 			vt0.set(vta[6 * i + 0], vta[6 * i + 1]);
-			vt1.set(vta[6 * i + 2], vta[6 * i + 3]);
-			vt2.set(vta[6 * i + 4], vta[6 * i + 5]);
+			vt2.set(vta[6 * i + 2], vta[6 * i + 3]);
+			vt1.set(vta[6 * i + 4], vta[6 * i + 5]);
 		}
 		else
 		{
@@ -555,29 +554,26 @@ function Prepare_Model_For_PathTracing()
 
 		// record vertex normals
 		vn0.set(vna[9 * i + 0], vna[9 * i + 1], vna[9 * i + 2]); 
-		vn1.set(vna[9 * i + 3], vna[9 * i + 4], vna[9 * i + 5]); 
-		vn2.set(vna[9 * i + 6], vna[9 * i + 7], vna[9 * i + 8]);
-		if (modelWasDefinedInRHCoordSystem)
-		{
-			vn0.z *= -1;
-			vn1.z *= -1;
-			vn2.z *= -1;
-		}
+		vn2.set(vna[9 * i + 3], vna[9 * i + 4], vna[9 * i + 5]); 
+		vn1.set(vna[9 * i + 6], vna[9 * i + 7], vna[9 * i + 8]);
+		
+		vn0.x *= -1; vn0.z *= -1;
+		vn1.x *= -1; vn1.z *= -1;
+		vn2.x *= -1; vn2.z *= -1;
+			
 		vn0.normalize();
 		vn1.normalize();
 		vn2.normalize();
 
 		// record vertex positions
 		vp0.set(vpa[9 * i + 0], vpa[9 * i + 1], vpa[9 * i + 2]);
-		vp1.set(vpa[9 * i + 3], vpa[9 * i + 4], vpa[9 * i + 5]);
-		vp2.set(vpa[9 * i + 6], vpa[9 * i + 7], vpa[9 * i + 8]);
-		if (modelWasDefinedInRHCoordSystem)
-		{
-			vp0.z *= -1;
-			vp1.z *= -1;
-			vp2.z *= -1;
-		}
+		vp2.set(vpa[9 * i + 3], vpa[9 * i + 4], vpa[9 * i + 5]);
+		vp1.set(vpa[9 * i + 6], vpa[9 * i + 7], vpa[9 * i + 8]);
 
+		vp0.x *= -1; vp0.z *= -1;
+		vp1.x *= -1; vp1.z *= -1;
+		vp2.x *= -1; vp2.z *= -1;
+			
 		vp0.scaleInPlace(modelInitialScale);
 		vp1.scaleInPlace(modelInitialScale);
 		vp2.scaleInPlace(modelInitialScale);
@@ -716,6 +712,7 @@ loadModel();
 
 
 // SCENE/DEMO-SPECIFIC PARAMETERS
+///camera.rotation.set(0, Math.PI, 0);
 camera.position.set(0, -20, -120);
 camera.inertia = 0;
 camera.angularSensibility = 500;
@@ -750,7 +747,7 @@ rightSphereTransformNode.scaling.set(sphereRadius, sphereRadius, sphereRadius);
 uRightSphereInvMatrix.copyFrom(rightSphereTransformNode.getWorldMatrix());
 uRightSphereInvMatrix.invert();
 
-gltfModelTransformNode.rotation.set(0, Math.PI, 0);
+///gltfModelTransformNode.rotation.set(0, Math.PI, 0);
 gltfModelTransformNode.scaling.set(0, 0, 0); // temporarily makes model invisible while it is being loaded and prepared
 
 
@@ -907,36 +904,28 @@ engine.runRenderLoop(function ()
 		if (gltfModel_SelectionController.getValue() == 'Utah Teapot')
 		{
 			modelNameAndExtension = "UtahTeapot.glb";
-			modelWasDefinedInRHCoordSystem = true;
 			modelInitialScale = 130;
-			transform_RotateYController.setValue(180);
 		}
 		else if (gltfModel_SelectionController.getValue() == 'Stanford Bunny')
 		{
 			modelNameAndExtension = "StanfordBunny.glb";
-			modelWasDefinedInRHCoordSystem = true;
 			modelInitialScale = 0.05;
 		}
 		else if (gltfModel_SelectionController.getValue() == 'Stanford Dragon')
 		{
 			modelNameAndExtension = "StanfordDragon.glb";
-			modelWasDefinedInRHCoordSystem = true;
 			modelInitialScale = 250;
-			transform_RotateYController.setValue(180);
 		}
 		else if (gltfModel_SelectionController.getValue() == 'glTF Duck')
 		{
 			modelNameAndExtension = "Duck.gltf";
-			modelWasDefinedInRHCoordSystem = false;
 			modelInitialScale = 10;
 		}
 		else if (gltfModel_SelectionController.getValue() == 'Damaged Helmet')
 		{
 			modelNameAndExtension = "DamagedHelmet.gltf";
-			modelWasDefinedInRHCoordSystem = false;
 			modelInitialScale = 15;
-			transform_RotateXController.setValue(90);
-			transform_RotateYController.setValue(180);
+			transform_RotateXController.setValue(270);
 		}
 
 		loadModel(); // load the newly selected model
