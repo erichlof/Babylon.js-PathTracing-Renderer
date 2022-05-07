@@ -45,6 +45,7 @@ let camera, oldCameraMatrix, newCameraMatrix;
 let camFlightSpeed; // scene specific, depending on scene size dimensions
 let cameraRecentlyMoving = false;
 let windowIsBeingResized = false;
+let beginningFlag = true;
 let timeInSeconds = 0.0;
 let frameTime = 0.0;
 let newWidth, newHeight;
@@ -400,8 +401,6 @@ canvas = document.getElementById("renderCanvas");
 
 engine = new BABYLON.Engine(canvas, true);
 
-engine.setHardwareScalingLevel(1.0 / pixel_ResolutionController.getValue());
-engine.resize();
 
 // Create the scene space
 pathTracingScene = new BABYLON.Scene(engine);
@@ -959,6 +958,11 @@ engine.runRenderLoop(function ()
 	// first, reset cameraIsMoving flag
 	uCameraIsMoving = false;
 
+	if (beginningFlag && uSampleCounter == 1)
+	{
+		pixel_ResolutionController.setValue(0.75);
+		beginningFlag = false;
+	}
 
 	// if GUI has been used, update
 
