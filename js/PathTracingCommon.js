@@ -541,28 +541,30 @@ vec3 randomSphereDirection() // useful for subsurface ray scattering
 
 vec3 randomCosWeightedDirectionInHemisphere(vec3 nl) // required for all diffuse/coat surfaces
 {
-	float r = sqrt(rng()); // cos-weighted distribution in hemisphere
+	float r0 = sqrt(rng());
 	float phi = rng() * TWO_PI;
-	float x = r * cos(phi);
-	float y = r * sin(phi);
-	float z = sqrt(1.0 - x*x - y*y);
+	float x = r0 * cos(phi);
+	float y = r0 * sin(phi);
+	float z = sqrt(1.0 - r0 * r0);
 	
-	vec3 U = normalize( cross( abs(nl.y) < 0.9 ? vec3(0, 1, 0) : vec3(0, 0,-1), nl ) );
+	vec3 U = normalize( cross( abs(nl.y) < 0.9 ? vec3(0, 1, 0) : vec3(0, 0, 1), nl ) );
 	vec3 V = cross(nl, U);
 	return normalize(x * U + y * V + z * nl);
 }
 
 vec3 randomDirectionInSpecularLobe(vec3 reflectionDir, float roughness) // for metal/dielectric specular surfaces with roughness
 {
-	roughness = clamp(roughness, 0.0, 1.0);
-	float exponent = mix(7.0, 0.0, sqrt(roughness));
-	float cosTheta = pow(rng(), 1.0 / (exp(exponent) + 1.0));
-	float sinTheta = sqrt(max(0.0, 1.0 - cosTheta * cosTheta));
+	float cosThetaMax = cos(roughness);
+	float r0 = rng();
+	float cosTheta = (1.0 - r0) + r0 * cosThetaMax;
+	float sinTheta = sqrt(1.0 - cosTheta * cosTheta);
 	float phi = rng() * TWO_PI;
-	
-	vec3 U = normalize( cross( abs(reflectionDir.y) < 0.9 ? vec3(0, 1, 0) : vec3(0, 0,-1), reflectionDir ) );
+	float x = cos(phi) * sinTheta;
+	float y = sin(phi) * sinTheta;
+
+	vec3 U = normalize( cross( abs(reflectionDir.y) < 0.9 ? vec3(0, 1, 0) : vec3(0, 0, 1), reflectionDir ) );
 	vec3 V = cross(reflectionDir, U);
-	return normalize(mix(reflectionDir, (U * cos(phi) * sinTheta + V * sin(phi) * sinTheta + reflectionDir * cosTheta), roughness));
+	return normalize( mix(reflectionDir, normalize(x * U + y * V + cosTheta * reflectionDir), roughness ) );
 }
 
 // tentFilter from Peter Shirley's 'Realistic Ray Tracing (2nd Edition)' book, pg. 60
@@ -628,14 +630,14 @@ vec3 sampleSphereLight(vec3 x, vec3 nl, Sphere light, out float weight) // requi
 {
 	vec3 dirToLight = (light.position - x); // no normalize (for distance calc below)
 	float cos_alpha_max = sqrt(1.0 - clamp((light.radius * light.radius) / dot(dirToLight, dirToLight), 0.0, 1.0));
-	
-	float cos_alpha = mix( cos_alpha_max, 1.0, rng() ); // 1.0 + (rng() * (cos_alpha_max - 1.0));
-	// * 0.75 below ensures shadow rays don't miss the light, due to shader float precision
+	float r0 = rng();
+	float cos_alpha = 1.0 - r0 + r0 * cos_alpha_max;//mix( cos_alpha_max, 1.0, rng() );
+	// * 0.75 below ensures shadow rays don't miss smaller sphere lights, due to shader float precision
 	float sin_alpha = sqrt(max(0.0, 1.0 - cos_alpha * cos_alpha)) * 0.75; 
 	float phi = rng() * TWO_PI;
 	dirToLight = normalize(dirToLight);
 	
-	vec3 U = normalize( cross( abs(dirToLight.y) < 0.9 ? vec3(0, 1, 0) : vec3(0, 0,-1), dirToLight ) );
+	vec3 U = normalize( cross( abs(dirToLight.y) < 0.9 ? vec3(0, 1, 0) : vec3(0, 0, 1), dirToLight ) );
 	vec3 V = cross(dirToLight, U);
 	
 	vec3 sampleDir = normalize(U * cos(phi) * sin_alpha + V * sin(phi) * sin_alpha + dirToLight * cos_alpha);
@@ -1295,7 +1297,7 @@ void main(void) // if the scene is static and doesn't have any special requireme
 	randVec4 = vec4(0); // on each animation frame, it samples and holds the RGBA blueNoise texture value for this pixel 
 	randVec4 = texelFetch(blueNoiseTexture, ivec2(mod(gl_FragCoord.xy + floor(uRandomVec2 * 256.0), 256.0)), 0);
 
-	// rand() produces higher FPS and almost immediate convergence, but may have very slight jagged diagonal edges on higher frequency color patterns, i.e. checkerboards.
+	// blueNoise_rand() produces higher FPS and almost immediate convergence, but may have very slight jagged diagonal edges on higher frequency color patterns, i.e. checkerboards.
 	// rng() has a little less FPS on mobile, and a little more noisy initially, but eventually converges on perfect anti-aliased edges - use this if 'beauty-render' is desired.
 	vec2 pixelOffset = uFrameCounter < 150.0 ? vec2( tentFilter(blueNoise_rand()), tentFilter(blueNoise_rand()) ) :
 					      	   vec2( tentFilter(rng()), tentFilter(rng()) );
