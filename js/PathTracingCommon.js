@@ -539,32 +539,22 @@ vec3 randomSphereDirection() // useful for subsurface ray scattering
 	return normalize(vec3(cos(around) * over, up, sin(around) * over));	
 }
 
-vec3 randomCosWeightedDirectionInHemisphere(vec3 nl) // required for all diffuse/coat surfaces
+//the following alternative skips the creation of tangent and bi-tangent vectors T and B
+vec3 randomCosWeightedDirectionInHemisphere(vec3 nl) // required for all diffuse and clearCoat surfaces
 {
-	float r0 = sqrt(rng());
+	float z = rng() * 2.0 - 1.0;
 	float phi = rng() * TWO_PI;
-	float x = r0 * cos(phi);
-	float y = r0 * sin(phi);
-	float z = sqrt(1.0 - r0 * r0);
-	
-	vec3 U = normalize( cross( abs(nl.y) < 0.9 ? vec3(0, 1, 0) : vec3(0, 0, 1), nl ) );
-	vec3 V = cross(nl, U);
-	return normalize(x * U + y * V + z * nl);
+	float r = sqrt(1.0 - z * z);
+    	return normalize(nl + vec3(r * cos(phi), r * sin(phi), z));
 }
 
-vec3 randomDirectionInSpecularLobe(vec3 reflectionDir, float roughness) // for metal/dielectric specular surfaces with roughness
+vec3 randomDirectionInSpecularLobe(vec3 reflectionDir, float roughness) // for metal and dielectric specular surfaces with roughness
 {
-	float cosThetaMax = cos(roughness);
-	float r0 = rng();
-	float cosTheta = (1.0 - r0) + r0 * cosThetaMax;
-	float sinTheta = sqrt(1.0 - cosTheta * cosTheta);
+	float z = rng() * 2.0 - 1.0;
 	float phi = rng() * TWO_PI;
-	float x = cos(phi) * sinTheta;
-	float y = sin(phi) * sinTheta;
-
-	vec3 U = normalize( cross( abs(reflectionDir.y) < 0.9 ? vec3(0, 1, 0) : vec3(0, 0, 1), reflectionDir ) );
-	vec3 V = cross(reflectionDir, U);
-	return normalize( mix(reflectionDir, normalize(x * U + y * V + cosTheta * reflectionDir), roughness ) );
+	float r = sqrt(1.0 - z * z);
+    	vec3 cosDiffuseDir = normalize(reflectionDir + vec3(r * cos(phi), r * sin(phi), z));
+	return normalize( mix(reflectionDir, cosDiffuseDir, roughness * roughness) );
 }
 
 // tentFilter from Peter Shirley's 'Realistic Ray Tracing (2nd Edition)' book, pg. 60
