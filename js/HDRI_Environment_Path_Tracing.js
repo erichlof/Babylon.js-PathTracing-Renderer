@@ -82,7 +82,7 @@ let uPreviousSampleCount = 0.0; // records the previous frame's sample count, so
 let uULen = 1.0; // rendering pixel horizontal scale, related to camera's FOV and aspect ratio
 let uVLen = 1.0; // rendering pixel vertical scale, related to camera's FOV
 let uCameraIsMoving = false; // lets the path tracer know if the camera is being moved
-let uToneMappingExposure = 1.2; // exposure amount when applying Reinhard tonemapping in final stages of pixel colors' output
+let uToneMappingExposure = 1.4; // exposure amount when applying Reinhard tonemapping in final stages of pixel colors' output
 let uPixelEdgeSharpness = 1.0; // for dynamic scenes only - if pixel is found to be lying on a border/boundary edge, how sharp should it be? (range: 0.0-1.0)
 let uEdgeSharpenSpeed = 0.05; // applies to edges only - how fast is the blur filter removed from edges?
 let uFilterDecaySpeed = 0.0002; // applies to entire image(edges and non-edges alike) - how fast should the blur filter go away for the entire image?
@@ -222,11 +222,11 @@ function init_GUI()
 	};
 
 	hdr_ExposureObject = {
-		HDR_Exposure: 1.2
+		HDR_Exposure: 1.4
 	};
 
 	sun_PowerObject = {
-		Sun_Power: 10
+		Sun_Power: 12
 	};
 
 	gltfModel_SelectionObject = {
@@ -735,8 +735,8 @@ const uEPS_intersect = 0.01; // value is scene-size dependent
 apertureChangeAmount = 1; // scene specific, depending on scene size dimensions
 focusDistChangeAmount = 1; // scene specific, depending on scene size dimensions
 uModelMaterialType = 3; // enum number code for METAL material - demo starts off with this setting for the glTF/glb model
-uHDRExposure = 1.2; // overall brightness of HDR environment image
-uSunPower = 10.0; // apparent brightness of the Sun in the HDR (separate from the rest of the sky)
+uHDRExposure = 1.4; // overall brightness of HDR environment image
+uSunPower = 12.0; // apparent brightness of the Sun in the HDR (separate from the rest of the sky)
 
 oldCameraMatrix = new BABYLON.Matrix();
 newCameraMatrix = new BABYLON.Matrix();
