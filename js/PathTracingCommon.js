@@ -1268,7 +1268,7 @@ int quartic(float c1, float c2, float c3, float c4, out vec4 res)
 float UnitTorusIntersect(vec3 ro, vec3 rd, float k, out vec3 n) 
 {
 	rd = normalize(rd);
-
+	k = mix(0.5, 1.0, k);
 	float torus_R = max(0.0, k); // outer extent of the entire torus/ring
 	float torus_r = max(0.01, 1.0 - k); // thickness of circular 'tubing' part of torus/ring
 	// U*t^2 + V*t + W = 2*r*R*cos(theta)
