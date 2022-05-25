@@ -674,6 +674,32 @@ float SphereIntersect( float rad, vec3 pos, vec3 rayOrigin, vec3 rayDirection )
 `;
 
 
+BABYLON.Effect.IncludesShadersStore[ 'pathtracing_unit_bounding_sphere_intersect' ] = `
+
+float UnitBoundingSphereIntersect( vec3 ro, vec3 rd, out bool insideSphere )
+{
+	float t0, t1;
+	float a = dot(rd, rd);
+	float b = 2.0 * dot(rd, ro);
+	float c = dot(ro, ro) - (1.01 * 1.01); // - (rad * rad) = - (1.0 * 1.0) = - 1.0 
+	solveQuadratic(a, b, c, t0, t1);
+	if (t0 > 0.0)
+	{
+		insideSphere = false;
+		return t0;
+	}
+	if (t1 > 0.0)
+	{
+		insideSphere = true;
+		return t1;
+	}
+
+	return INFINITY;
+}
+
+`;
+
+
 BABYLON.Effect.IncludesShadersStore[ 'pathtracing_unit_sphere_intersect' ] = `
 
 float UnitSphereIntersect( vec3 ro, vec3 rd, out vec3 n )
@@ -1115,64 +1141,182 @@ float UnitRectangleIntersect( vec3 ro, vec3 rd )
 
 BABYLON.Effect.IncludesShadersStore[ 'pathtracing_unit_torus_intersect' ] = `
 
-// Thanks to koiava for the ray marching strategy! https://www.shadertoy.com/user/koiava
+// This Torus quartic solver from https://www.shadertoy.com/view/ltVfDK by Shadertoy user 'mla'
 
-float map_Torus( in vec3 pos, float k )
+float sgn(float x) 
 {
-	return length( vec2(length(pos.xz) - (1.0-k), pos.y) ) - k;
+	return x < 0.0 ? -1.0 : 1.0; // Return 1 for x == 0
 }
 
-float UnitTorusIntersect( vec3 ro, vec3 rd, float k, out vec3 n )
-{	
-	// unit torus - outer radius is always 1.0 (in torus object space)
-	// k represents the inner radius, conservative range: 
-	//    0.01 (thickest torus, inner radius is almost at center (0.01) while outer radius is way out at 1.0)...
-	// to 0.99 (very thin torus, inner radius (0.99) is right next to outer radius which is at 1.0)
-	k = 1.0 - clamp(k, 0.01, 0.99);
+// Quadratic solver from Kahan
+int quadratic(float A, float B, float C, out vec2 res) 
+{
+	float b = -0.5 * B;
+	float b2 = b * b;
+	float q = b2 - A * C;
+	if (q < 0.0) 
+		return 0;
 
-	float d = INFINITY;
-	vec3 hit;
-
-	float tc, t0, t1;
-	float a = (rd.x * rd.x + rd.z * rd.z);
-    	float b = 2.0 * (rd.x * ro.x + rd.z * ro.z);
-    	float c = (ro.x * ro.x + ro.z * ro.z) - 1.0; 
-	solveQuadratic(a, b, c, t0, t1);
-	vec3 hit0 = ro + rd * t0;
-	vec3 hit1 = ro + rd * t1;
-	tc = (t0 > 0.0 && abs(hit0.y) <= k) ? t0 : (t1 > 0.0 && abs(hit1.y) <= k) ? t1 : INFINITY;
-
-	float d0 = (ro.y + k) / -rd.y;
-	hit = ro + rd * d0;
-	d0 = (d0 > 0.0 && hit.x * hit.x + hit.z * hit.z <= 1.0) ? d0 : INFINITY; // disk with unit radius
-	float d1 = (ro.y - k) / -rd.y;
-	hit = ro + rd * d1;
-	d1 = (d1 > 0.0 && hit.x * hit.x + hit.z * hit.z <= 1.0) ? d1 : INFINITY; // disk with unit radius
-	
-	if (tc == INFINITY && d0 == INFINITY && d1 == INFINITY)
-		return INFINITY;
-
-	vec3 pos;
-	float t = min(min(d0, d1), tc);
-	
-	for (int i = 0; i < 500; i++)
+	float r = b + sgn(b) * sqrt(q);
+	if (r == 0.0) 
 	{
-		pos = ro + rd * t;
-		d = map_Torus(pos, k);
-		if (abs(d) < 0.01) break;
-		t += d;
-	}
-	
-	if (abs(d) < 0.01)
+		res.x = C / A;
+		res.y = -res.x;
+	} 
+	else 
 	{
-		vec2 e = vec2(1.0,-1.0)*0.5773*0.0002;
-		n = ( e.xyy*map_Torus( pos + e.xyy, k ) + 
-		      e.yyx*map_Torus( pos + e.yyx, k ) + 
-		      e.yxy*map_Torus( pos + e.yxy, k ) + 
-		      e.xxx*map_Torus( pos + e.xxx, k ) );
-		return t;
+		res.x = C / r;
+		res.y = r / A;
 	}
-	return INFINITY;
+
+  	return 2;
+}
+
+void eval( float X, float A, float B, float C, float D,
+           out float Q, out float DQ, out float B1, out float C2 ) 
+{
+	float q0 = A * X;
+	B1 = q0 + B;
+	C2 = B1 * X + C;
+	DQ = (q0 + B1) * X + C2;
+	Q = C2 * X + D;
+}
+
+float qcubic1(float B, float C, float D) 
+{  
+	if (abs(C) < 1e-4 && abs(D) < 1e-6) 
+		return 0.0;
+
+	float A = 1.0;
+	float X, b1, c2;
+	if (D == 0.0) 
+	{
+		X = 0.0; 
+		b1 = B; 
+		c2 = C;
+	} 
+	else 
+	{
+		X = -(B / A) / 3.0;
+		float t, r, s, q, dq, x0;
+
+		eval(X, A, B, C, D, q, dq, b1, c2);
+		t = q / A; 
+		r = pow(abs(t), 1.0 / 3.0); 
+		s = sgn(t);
+		t = -dq / A; 
+		if (t > 0.0)
+			r = 1.324718 * max(r, sqrt(t));
+		x0 = X - s * r;
+		if (x0 != X) 
+		{
+			X = x0;
+			for (int i = 0; i < 6; i++) 
+			{
+				eval(X, A, B, C, D, q, dq, b1, c2);
+				if (dq == 0.0) 
+					break;
+				X -= q / dq;
+			}
+			if (abs(A) * X * X > abs(D / X)) 
+			{
+				c2 = -D / X; 
+				b1 = (c2 - C) / X;
+			}
+		}
+	}
+
+	vec2 res;
+	if (quadratic(A, b1, c2, res) != 0) 
+	{
+		X = max(X, res.x);
+		X = max(X, res.y);
+	}
+
+	return X;
+}
+
+// The Lanczos quartic method
+int quartic(float c1, float c2, float c3, float c4, out vec4 res) 
+{
+	float alpha = 0.5 * c1;
+	float A = c2 - alpha * alpha;
+	float B = c3 - alpha * A;
+	float a, b, beta, psi;
+	// Get largest root of cubic
+	psi = qcubic1(2.0 * A - alpha * alpha, A * A + 2.0 * B * alpha - 4.0 * c4, -B * B);
+	a = sqrt(psi);
+	beta = 0.5 * (A + psi);
+	if (psi == 0.0) 
+	{
+		b = sqrt(max(beta * beta -c4, 0.0));
+	} 
+	else 
+	{
+		b = 0.5 * a * (alpha - B / psi);
+	}
+
+	int n1 = quadratic(1.0, alpha + a, beta + b, res.xy);
+	int n2 = quadratic(1.0, alpha - a, beta - b, res.zw); 
+	if (n1 == 0) 
+		res.xy = res.zw;
+
+	return n1 + n2;
+}
+
+
+float UnitTorusIntersect(vec3 ro, vec3 rd, float k, out vec3 n) 
+{
+	rd = normalize(rd);
+
+	float torus_R = max(0.0, k); // outer extent of the entire torus/ring
+	float torus_r = max(0.01, 1.0 - k); // thickness of circular 'tubing' part of torus/ring
+	// U*t^2 + V*t + W = 2*r*R*cos(theta)
+	float U = dot(rd, rd);
+	float V = 2.0 * dot(ro, rd);
+	float W = dot(ro, ro) - (torus_R * torus_R + torus_r * torus_r);
+	// A*t^4 + B*t^3 + C*t^2 + D*t + _E = 0
+	//float A = 1.0; //U*U;
+	float B = 2.0 * U * V;
+	float C = V * V + 2.0 * U * W + 4.0 * torus_R * torus_R * rd.z * rd.z;
+	float D = 2.0 * V * W + 8.0 * torus_R * torus_R * ro.z * rd.z;
+	// the constant 'E' was already defined in 'pathtracing_defines_and_uniforms'
+	float _E = W * W + 4.0 * torus_R * torus_R * (ro.z * ro.z - torus_r * torus_r);
+
+	vec4 res = vec4(0);
+	int ns = quartic(B, C, D, _E, res);
+	// Sort results
+	if (ns > 1) 
+	{
+		if (res.x > res.y) res.xy = res.yx;
+	}
+	if (ns > 2) 
+	{
+		if (res.y > res.z) res.yz = res.zy;
+		if (res.x > res.y) res.xy = res.yx;
+	}
+	if (ns > 3) 
+	{
+		if (res.z > res.w) res.zw = res.wz;
+		if (res.y > res.z) res.yz = res.zy;
+		if (res.x > res.y) res.xy = res.yx;
+	}
+  
+	float t = INFINITY;
+	
+	if (res.w > 0.0)
+		t = res.w;
+	if (res.z > 0.0)
+		t = res.z;
+	if (res.y > 0.0)
+		t = res.y;
+	if (res.x > 0.0)
+		t = res.x;
+	
+	vec3 pos = ro + t * rd;
+	n = pos * (dot(pos, pos) - (torus_r * torus_r) - (torus_R * torus_R) * vec3(1, 1,-1));
+	
+  	return t;
 }
 
 `;
