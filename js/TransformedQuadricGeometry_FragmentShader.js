@@ -44,6 +44,8 @@ vec3 rayOrigin, rayDirection;
 
 #include<pathtracing_solve_quadratic> // required on scenes with any math-geometry shapes like sphere, cylinder, cone, etc.
 
+#include<pathtracing_unit_bounding_sphere_intersect> // required on scenes with complex shapes (like the torus): a bounding sphere check will quickly eliminate rays that would miss
+
 #include<pathtracing_unit_sphere_intersect> // required on scenes with unit spheres that will be translated, rotated, and scaled by their matrix transform
 
 #include<pathtracing_unit_cylinder_intersect> // required on scenes with unit cylinders that will be translated, rotated, and scaled by their matrix transform
@@ -79,14 +81,31 @@ void SceneIntersect( vec3 rayOrigin, vec3 rayDirection, out float hitT, out vec3
 {
 	
 	vec3 rObjOrigin, rObjDirection;
-	vec3 hit, n;
-	float d;
+	vec3 hit, n, hitPos;
+	float d, dt;
 	int objectCount = 0;
+	bool insideSphere = false;
 
 	// initialize hit record 
 	hitT = INFINITY;
 	hitType = -100;
 	hitObjectID = -INFINITY;
+
+	for (int i = 0; i < N_QUADS; i++)
+        {
+		d = QuadIntersect( quads[i].v0, quads[i].v1, quads[i].v2, quads[i].v3, rayOrigin, rayDirection, false );
+
+		if (d < hitT)
+		{
+			hitT = d;
+			hitNormal = quads[i].normal;
+			hitColor = quads[i].color;
+			hitType = quads[i].type;
+			hitObjectID = float(objectCount);
+		}
+
+		objectCount++;
+        }
 	
 	
         // transform ray into sphere's object space
@@ -273,35 +292,23 @@ void SceneIntersect( vec3 rayOrigin, vec3 rayDirection, out float hitT, out vec3
 	// transform ray into torus's object space
 	rObjOrigin = vec3( uTorusInvMatrix * vec4(rayOrigin, 1.0) );
 	rObjDirection = vec3( uTorusInvMatrix * vec4(rayDirection, 0.0) );
-
-	d = UnitTorusIntersect( rObjOrigin, rObjDirection, uShapeK, n );
-	
-	if (d < hitT)
+	// first check that the ray hits the bounding sphere around the torus
+	d = UnitBoundingSphereIntersect( rObjOrigin, rObjDirection, insideSphere );
+	if (d < INFINITY)
 	{
-		hitT = d;
-		hitNormal = transpose(mat3(uTorusInvMatrix)) * n;
-		hitColor = vec3(0.5, 0.0, 1.0);
-		hitType = uAllShapesMatType;
-		hitObjectID = float(objectCount);
-	}
-	objectCount++;
+		d = insideSphere ? 2.0 : d; // for transparent torus, nudge the ray out farther
+		rObjOrigin += rObjDirection * d;
 
-        
-	for (int i = 0; i < N_QUADS; i++)
-        {
-		d = QuadIntersect( quads[i].v0, quads[i].v1, quads[i].v2, quads[i].v3, rayOrigin, rayDirection, false );
-
-		if (d < hitT)
+		dt = d + UnitTorusIntersect( rObjOrigin, rObjDirection, uShapeK, n );
+		if (dt < hitT)
 		{
-			hitT = d;
-			hitNormal = quads[i].normal;
-			hitColor = quads[i].color;
-			hitType = quads[i].type;
+			hitT = dt;
+			hitNormal = transpose(mat3(uTorusInvMatrix)) * n;
+			hitColor = vec3(0.5, 0.0, 1.0);
+			hitType = uAllShapesMatType;
 			hitObjectID = float(objectCount);
 		}
-
-		objectCount++;
-        }
+	}
 
 } // end void SceneIntersect( vec3 rayOrigin, vec3 rayDirection, out float hitT, out vec3 hitNormal, out vec3 hitEmission, out vec3 hitColor, out int hitType, out float hitObjectID )
 
@@ -342,7 +349,7 @@ vec3 CalculateRadiance( out vec3 objectNormal, out vec3 objectColor, out float o
 	bool sampleLight = false;
 
 
-	for (int bounces = 0; bounces < 6; bounces++)
+	for (int bounces = 0; bounces < 8; bounces++)
 	{
 		previousIntersecType = hitType;
 
@@ -443,7 +450,7 @@ vec3 CalculateRadiance( out vec3 objectNormal, out vec3 objectColor, out float o
                 	RP = Re / P;
                 	TP = Tr / (1.0 - P);
 
-			if (blueNoise_rand() < P)
+			if (diffuseCount == 0 && blueNoise_rand() < P)
 			{
 				mask *= RP;
 				rayDirection = reflect(rayDirection, nl); // reflect ray from surface
@@ -480,7 +487,7 @@ vec3 CalculateRadiance( out vec3 objectNormal, out vec3 objectColor, out float o
                 	RP = Re / P;
                 	TP = Tr / (1.0 - P);
 
-			if (blueNoise_rand() < P)
+			if (diffuseCount == 0 && blueNoise_rand() < P)
 			{
 				mask *= RP;
 				rayDirection = reflect(rayDirection, nl); // reflect ray from surface
@@ -517,7 +524,7 @@ vec3 CalculateRadiance( out vec3 objectNormal, out vec3 objectColor, out float o
 
 		} //end if (hitType == CLEARCOAT_DIFFUSE)
 
-	} // end for (int bounces = 0; bounces < 6; bounces++)
+	} // end for (int bounces = 0; bounces < 8; bounces++)
 
 
 	return max(vec3(0), accumCol);
