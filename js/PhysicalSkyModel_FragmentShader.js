@@ -288,7 +288,7 @@ vec3 CalculateRadiance( out vec3 objectNormal, out vec3 objectColor, out float o
                 	RP = Re / P;
                 	TP = Tr / (1.0 - P);
 
-			if (blueNoise_rand() < P)
+			if (diffuseCount == 0 && blueNoise_rand() < P)
 			{
 				mask *= RP;
 				rayDirection = reflect(rayDirection, nl); // reflect ray from surface
@@ -332,7 +332,7 @@ vec3 CalculateRadiance( out vec3 objectNormal, out vec3 objectColor, out float o
                 	RP = Re / P;
                 	TP = Tr / (1.0 - P);
 
-			if (blueNoise_rand() < P)
+			if (diffuseCount == 0 && blueNoise_rand() < P)
 			{
 				mask *= RP;
 				rayDirection = reflect(rayDirection, nl); // reflect ray from surface
