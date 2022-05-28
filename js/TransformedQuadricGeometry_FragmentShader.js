@@ -295,8 +295,8 @@ void SceneIntersect( vec3 rayOrigin, vec3 rayDirection, out float hitT, out vec3
 	// first check that the ray hits the bounding sphere around the torus
 	d = UnitBoundingSphereIntersect( rObjOrigin, rObjDirection, insideSphere );
 	if (d < INFINITY)
-	{
-		d = insideSphere ? 2.0 : d; // for transparent torus, nudge the ray out farther
+	{	 // if outside the sphere, move the ray up close to the Torus, for numerical stability
+		d = insideSphere ? 0.0 : d;
 		rObjOrigin += rObjDirection * d;
 
 		dt = d + UnitTorusIntersect( rObjOrigin, rObjDirection, uShapeK, n );
