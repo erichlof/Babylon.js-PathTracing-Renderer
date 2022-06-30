@@ -1163,9 +1163,9 @@ int quadratic(float A, float B, float C, out vec2 res)
 {
 	float b = - 0.5 * B, b2 = b * b;
 	float q = b2 - A * C;
-	if(q < 0.0) return 0;
+	if (q < 0.0) return 0;
 	float r = b + sgn(b) * sqrt(q);
-	if(r == 0.0) 
+	if (r == 0.0) 
 	{
 		res[0] = C / A;
 		res[1] = - res[0];
@@ -1182,11 +1182,11 @@ int quadratic(float A, float B, float C, out vec2 res)
 // Numerical Recipes algorithm for solving cubic equation
 int cubic(float a, float b, float c, float d, out vec3 res) 
 {
-	if(a == 0.0) 
+	if (a == 0.0) 
 	{
 		return quadratic(b, c, d, res.xy);
 	}
-	if(d == 0.0) 
+	if (d == 0.0) 
 	{
 		res.x = 0.0;
 		return 1 + quadratic(a, b, c, res.yz);
@@ -1199,7 +1199,7 @@ int cubic(float a, float b, float c, float d, out vec3 res)
 	float Q = (a * a - 3.0 * b) / 9.0;
 	float R = (2.0 * a * a * a - 9.0 * a * b + 27.0 * c) / 54.0;
 	float R2 = R * R, Q3 = Q * Q * Q;
-	if(R2 < Q3) 
+	if (R2 < Q3) 
 	{
 		float X = clamp(R / sqrt(Q3), - 1.0, 1.0);
 		float theta = acos(X);
@@ -1244,8 +1244,8 @@ float qcubic(float B, float C, float D)
 	int nroots = cubic(1.0, B, C, D, roots);
 	// Select the largest
 	float psi = roots[0];
-	if(nroots > 1) psi = max(psi, roots[1]);
-	if(nroots > 2) psi = max(psi, roots[2]);
+	if (nroots > 1) psi = max(psi, roots[1]);
+	if (nroots > 2) psi = max(psi, roots[2]);
 
 	// Give a quick polish with Newton-Raphson
 	float delta;
@@ -1270,7 +1270,7 @@ int lquartic(float c1, float c2, float c3, float c4, out vec4 res)
 	psi = max(0.0, psi);
 	a = sqrt(psi);
 	beta = 0.5 * (A + psi);
-	if(psi <= 0.0) 
+	if (psi <= 0.0) 
 	{
 		b = sqrt(max(beta * beta - c4, 0.0));
 	} 
@@ -1281,14 +1281,14 @@ int lquartic(float c1, float c2, float c3, float c4, out vec4 res)
 
 	int resn = quadratic(1.0, alpha + a, beta + b, res.xy);
 	vec2 tmp;
-	if(quadratic(1.0, alpha - a, beta - b, tmp) != 0) 
+	if (quadratic(1.0, alpha - a, beta - b, tmp) != 0) 
 	{
 		res.zw = res.xy;
 		res.xy = tmp;
 		resn += 2;
 	}
 
-		return resn;
+	return resn;
 }
 
 // Note: the parameter below is renamed '_E', because Euler's number 'E' is already defined in 'pathtracing_defines_and_uniforms'
@@ -1296,14 +1296,14 @@ int quartic(float A, float B, float C, float D, float _E, out vec4 roots)
 {
 	int nroots;
 	// Sometimes it's advantageous to solve for the reciprocal (if there are very large solutions)
-	if(abs(B / A) < abs(D / _E)) 
+	if (abs(B / A) < abs(D / _E)) 
 	{
 		nroots = lquartic(B / A, C / A, D / A, _E / A, roots);
 	} 
 	else 
 	{
 		nroots = lquartic(D / _E, C / _E, B / _E, A / _E, roots);
-		for(int i = 0; i < nroots; i ++) 
+		for (int i = 0; i < nroots; i ++) 
 		{
 			roots[i] = 1.0 / roots[i];
 		}
@@ -1335,15 +1335,15 @@ float UnitTorusIntersect(vec3 ro, vec3 rd, float k, out vec3 n)
 
 	vec4 res = vec4(0);
 	int nr = quartic(A, B, C, D, _E, res);
-	if(nr == 0) return INFINITY;
+	if (nr == 0) return INFINITY;
 	// Sort the roots.
-	if(res.x > res.y) res.xy = res.yx;
-	if(nr > 2) 
+	if (res.x > res.y) res.xy = res.yx;
+	if (nr > 2) 
 	{
 		if(res.y > res.z) res.yz = res.zy;
 		if(res.x > res.y) res.xy = res.yx;
 	}
-	if(nr > 3) 
+	if (nr > 3) 
 	{
 		if(res.z > res.w) res.zw = res.wz;
 		if(res.y > res.z) res.yz = res.zy;
@@ -1358,7 +1358,11 @@ float UnitTorusIntersect(vec3 ro, vec3 rd, float k, out vec3 n)
 	t = (res.x > 0.0) ? res.x : t;
 
 	vec3 pos = ro + t * rd;
-	n = pos * (dot(pos, pos) - torusr2 - torusR2 * vec3(1, 1, - 1));
+	//n = pos * (dot(pos, pos) - torusr2 - torusR2 * vec3(1, 1,-1));
+
+	float kn = sqrt(torusR2 / dot(pos.xy, pos.xy));
+	pos.xy -= kn * pos.xy;
+	n = pos;
 
 	return t;
 }
