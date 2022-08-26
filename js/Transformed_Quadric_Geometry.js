@@ -115,33 +115,28 @@ let uRectangleInvMatrix = new BABYLON.Matrix();
 let uTorusInvMatrix = new BABYLON.Matrix();
 
 
-const KEYCODE_NAMES = {
-	65: 'a', 66: 'b', 67: 'c', 68: 'd', 69: 'e', 70: 'f', 71: 'g', 72: 'h', 73: 'i', 74: 'j', 75: 'k', 76: 'l', 77: 'm',
-	78: 'n', 79: 'o', 80: 'p', 81: 'q', 82: 'r', 83: 's', 84: 't', 85: 'u', 86: 'v', 87: 'w', 88: 'x', 89: 'y', 90: 'z',
-	37: 'left', 38: 'up', 39: 'right', 40: 'down', 32: 'space', 33: 'pageup', 34: 'pagedown', 9: 'tab',
-	189: 'dash', 187: 'equals', 219: 'leftbracket', 221: 'rightbracket', 188: 'comma', 190: 'period', 27: 'escape', 13: 'enter',
-	48: 'zero', 49: 'one', 50: 'two', 51: 'three', 52: 'four', 53: 'five', 54: 'six', 55: 'seven', 56: 'eight', 57: 'nine'
-}
+// The following list of keys is not exhaustive, but it should be more than enough to build interactive demos and games
 let KeyboardState = {
-	a: false, b: false, c: false, d: false, e: false, f: false, g: false, h: false, i: false, j: false, k: false, l: false, m: false,
-	n: false, o: false, p: false, q: false, r: false, s: false, t: false, u: false, v: false, w: false, x: false, y: false, z: false,
-	left: false, up: false, right: false, down: false, space: false, pageup: false, pagedown: false, tab: false,
-	dash: false, equals: false, leftbracket: false, rightbracket: false, comma: false, period: false, escape: false, enter: false,
-	zero: false, one: false, two: false, three: false, four: false, five: false, six: false, seven: false, eight: false, nine: false
+	KeyA: false, KeyB: false, KeyC: false, KeyD: false, KeyE: false, KeyF: false, KeyG: false, KeyH: false, KeyI: false, KeyJ: false, KeyK: false, KeyL: false, KeyM: false,
+	KeyN: false, KeyO: false, KeyP: false, KeyQ: false, KeyR: false, KeyS: false, KeyT: false, KeyU: false, KeyV: false, KeyW: false, KeyX: false, KeyY: false, KeyZ: false,
+	ArrowLeft: false, ArrowUp: false, ArrowRight: false, ArrowDown: false, Space: false, Enter: false, PageUp: false, PageDown: false, Tab: false,
+	Minus: false, Equal: false, BracketLeft: false, BracketRight: false, Semicolon: false, Quote: false, Backquote: false,
+	Comma: false, Period: false, ShiftLeft: false, ShiftRight: false, Slash: false, Backslash: false, Backspace: false,
+	Digit1: false, Digit2: false, Digit3: false, Digit4: false, Digit5: false, Digit6: false, Digit7: false, Digit8: false, Digit9: false, Digit0: false
 }
 
 function onKeyDown(event)
 {
 	event.preventDefault();
 
-	KeyboardState[KEYCODE_NAMES[event.keyCode]] = true;
+	KeyboardState[event.code] = true;
 }
 
 function onKeyUp(event)
 {
 	event.preventDefault();
 
-	KeyboardState[KEYCODE_NAMES[event.keyCode]] = false;
+	KeyboardState[event.code] = false;
 }
 
 function keyPressed(keyName)
@@ -855,51 +850,51 @@ engine.runRenderLoop(function ()
 	cameraRightVector.normalize();
 
 	// check for user input
-	if (keyPressed('w') && !keyPressed('s'))
+	if (keyPressed('KeyW') && !keyPressed('KeyS'))
 	{
 		camera.position.addInPlace(cameraDirectionVector.scaleToRef(camFlightSpeed * frameTime, cameraDirectionVector));
 	}
-	if (keyPressed('s') && !keyPressed('w'))
+	if (keyPressed('KeyS') && !keyPressed('KeyW'))
 	{
 		camera.position.subtractInPlace(cameraDirectionVector.scaleToRef(camFlightSpeed * frameTime, cameraDirectionVector));
 	}
-	if (keyPressed('a') && !keyPressed('d'))
+	if (keyPressed('KeyA') && !keyPressed('KeyD'))
 	{
 		camera.position.subtractInPlace(cameraRightVector.scaleToRef(camFlightSpeed * frameTime, cameraRightVector));
 	}
-	if (keyPressed('d') && !keyPressed('a'))
+	if (keyPressed('KeyD') && !keyPressed('KeyA'))
 	{
 		camera.position.addInPlace(cameraRightVector.scaleToRef(camFlightSpeed * frameTime, cameraRightVector));
 	}
-	if (keyPressed('e') && !keyPressed('q'))
+	if (keyPressed('KeyE') && !keyPressed('KeyQ'))
 	{
 		camera.position.addInPlace(cameraUpVector.scaleToRef(camFlightSpeed * frameTime, cameraUpVector));
 	}
-	if (keyPressed('q') && !keyPressed('e'))
+	if (keyPressed('KeyQ') && !keyPressed('KeyE'))
 	{
 		camera.position.subtractInPlace(cameraUpVector.scaleToRef(camFlightSpeed * frameTime, cameraUpVector));
 	}
 
-	if (keyPressed('equals') && !keyPressed('dash'))
+	if (keyPressed('Equal') && !keyPressed('Minus'))
 	{
 		uFocusDistance += focusDistChangeAmount;
 		uCameraIsMoving = true;
 	}
-	if (keyPressed('dash') && !keyPressed('equals'))
+	if (keyPressed('Minus') && !keyPressed('Equal'))
 	{
 		uFocusDistance -= focusDistChangeAmount;
 		if (uFocusDistance < 1)
 			uFocusDistance = 1;
 		uCameraIsMoving = true;
 	}
-	if (keyPressed('rightbracket') && !keyPressed('leftbracket'))
+	if (keyPressed('BracketRight') && !keyPressed('BracketLeft'))
 	{
 		uApertureSize += apertureChangeAmount;
 		if (uApertureSize > 100000.0)
 			uApertureSize = 100000.0;
 		uCameraIsMoving = true;
 	}
-	if (keyPressed('leftbracket') && !keyPressed('rightbracket'))
+	if (keyPressed('BracketLeft') && !keyPressed('BracketRight'))
 	{
 		uApertureSize -= apertureChangeAmount;
 		if (uApertureSize < 0.0)
@@ -907,22 +902,6 @@ engine.runRenderLoop(function ()
 		uCameraIsMoving = true;
 	}
 
-	if (keyPressed('z') && !keyPressed('x'))
-	{
-		uShapeK -= 1 * frameTime;
-		if (uShapeK < 0.01)
-			uShapeK = 0.01;
-		uCameraIsMoving = true;
-	}
-	if (keyPressed('x') && !keyPressed('z'))
-	{
-		uShapeK += 1 * frameTime;
-		if (uShapeK > 1)
-			uShapeK = 1;
-		uCameraIsMoving = true;
-	}
-
-	
 
 	// now update uniforms that are common to all scenes
 	if (increaseFOV)
