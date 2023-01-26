@@ -372,6 +372,8 @@ BABYLON.Effect.IncludesShadersStore['pathtracing_defines_and_uniforms'] = `
 #define DARKWOOD 16
 #define PAINTING 17
 #define METALCOAT 18
+#define TRUE 1
+#define FALSE 0
 
 // Samplers
 uniform sampler2D previousBuffer;
@@ -676,7 +678,7 @@ float SphereIntersect( float rad, vec3 pos, vec3 rayOrigin, vec3 rayDirection )
 
 BABYLON.Effect.IncludesShadersStore[ 'pathtracing_unit_bounding_sphere_intersect' ] = `
 
-float UnitBoundingSphereIntersect( vec3 ro, vec3 rd, out bool insideSphere )
+float UnitBoundingSphereIntersect( vec3 ro, vec3 rd, out int insideSphere )
 {
 	float t0, t1;
 	float a = dot(rd, rd);
@@ -685,12 +687,12 @@ float UnitBoundingSphereIntersect( vec3 ro, vec3 rd, out bool insideSphere )
 	solveQuadratic(a, b, c, t0, t1);
 	if (t0 > 0.0)
 	{
-		insideSphere = false;
+		insideSphere = FALSE;
 		return t0;
 	}
 	if (t1 > 0.0)
 	{
-		insideSphere = true;
+		insideSphere = TRUE;
 		return t1;
 	}
 
@@ -1358,13 +1360,13 @@ float UnitTorusIntersect(vec3 ro, vec3 rd, float k, out vec3 n)
 
 BABYLON.Effect.IncludesShadersStore[ 'pathtracing_quad_intersect' ] = `
 
-float TriangleIntersect( vec3 v0, vec3 v1, vec3 v2, vec3 rayOrigin, vec3 rayDirection, bool isDoubleSided )
+float TriangleIntersect( vec3 v0, vec3 v1, vec3 v2, vec3 rayOrigin, vec3 rayDirection, int isDoubleSided )
 {
 	vec3 edge1 = v1 - v0;
 	vec3 edge2 = v2 - v0;
 	vec3 pvec = cross(rayDirection, edge2);
 	float det = 1.0 / dot(edge1, pvec);
-	if ( !isDoubleSided && det < 0.0 )
+	if (isDoubleSided == FALSE && det < 0.0)
 		return INFINITY;
 	vec3 tvec = rayOrigin - v0;
 	float u = dot(tvec, pvec) * det;
@@ -1374,7 +1376,7 @@ float TriangleIntersect( vec3 v0, vec3 v1, vec3 v2, vec3 rayOrigin, vec3 rayDire
 	return (u < 0.0 || u > 1.0 || v < 0.0 || u + v > 1.0 || t <= 0.0) ? INFINITY : t;
 }
 
-float QuadIntersect( vec3 v0, vec3 v1, vec3 v2, vec3 v3, vec3 rayOrigin, vec3 rayDirection, bool isDoubleSided )
+float QuadIntersect( vec3 v0, vec3 v1, vec3 v2, vec3 v3, vec3 rayOrigin, vec3 rayDirection, int isDoubleSided )
 {
 	return min(TriangleIntersect(v0, v1, v2, rayOrigin, rayDirection, isDoubleSided), TriangleIntersect(v0, v2, v3, rayOrigin, rayDirection, isDoubleSided));
 }
