@@ -94,7 +94,7 @@ void SceneIntersect( vec3 rayOrigin, vec3 rayDirection, out float hitT, out vec3
 
 	for (int i = 0; i < N_QUADS; i++)
         {
-		d = QuadIntersect( quads[i].v0, quads[i].v1, quads[i].v2, quads[i].v3, rayOrigin, rayDirection, false );
+		d = QuadIntersect( quads[i].v0, quads[i].v1, quads[i].v2, quads[i].v3, rayOrigin, rayDirection, FALSE );
 
 		if (d < hitT)
 		{
@@ -140,9 +140,9 @@ vec3 CalculateRadiance( out vec3 objectNormal, out vec3 objectColor, out float o
 	int previousIntersecType = -100;
 	hitType = -100;
 
-	bool coatTypeIntersected = false;
-	bool bounceIsSpecular = true;
-	bool sampleLight = false;
+	int coatTypeIntersected = FALSE;
+	int bounceIsSpecular = TRUE;
+	int sampleLight = FALSE;
 
 
 	for (int bounces = 0; bounces < 6; bounces++)
@@ -159,31 +159,31 @@ vec3 CalculateRadiance( out vec3 objectNormal, out vec3 objectColor, out float o
 			if (bounces == 0) // ray hits sky first
 			{
 				pixelSharpness = 1.01;
-				//skyHit = true;
+				//skyHit = TRUE;
 				//firstX = skyPos;
 				accumCol = skyColor;
 				break; // exit early	
 			}
-			else if (diffuseCount == 0 && bounceIsSpecular)
+			else if (diffuseCount == 0 && bounceIsSpecular == TRUE)
 			{
-				if (coatTypeIntersected)
+				if (coatTypeIntersected == TRUE)
 				{
 					if (dot(rayDirection, uSunDirection) > 0.995)
 					pixelSharpness = 1.01;
 				}
 				else
 					pixelSharpness = 1.01;
-				//skyHit = true;
+				//skyHit = TRUE;
 				//firstX = skyPos;
 				accumCol = mask * skyColor;
 				break; // exit early	
 			}
-			else if (sampleLight)
+			else if (sampleLight == TRUE)
 			{
 				accumCol = mask * skyColor;
 				break;
 			}
-			else if (diffuseCount == 1 && previousIntersecType == TRANSPARENT && bounceIsSpecular)
+			else if (diffuseCount == 1 && previousIntersecType == TRANSPARENT && bounceIsSpecular == TRUE)
 			{
 				accumCol = mask * skyColor;
 				break;
@@ -220,7 +220,7 @@ vec3 CalculateRadiance( out vec3 objectNormal, out vec3 objectColor, out float o
 			if (diffuseCount == 0)
 				pixelSharpness = 1.01;
 
-			if (bounceIsSpecular || sampleLight)
+			if (bounceIsSpecular == TRUE || sampleLight == TRUE)
 				accumCol = mask * hitColor;
 
 			// reached a light, so we can exit
@@ -230,7 +230,7 @@ vec3 CalculateRadiance( out vec3 objectNormal, out vec3 objectColor, out float o
 
 
 		// if we get here and sampleLight is still true, shadow ray failed to find a light source
-		if (sampleLight)
+		if (sampleLight == TRUE)
 			break;
 
 
@@ -241,7 +241,7 @@ vec3 CalculateRadiance( out vec3 objectNormal, out vec3 objectColor, out float o
 
 			mask *= hitColor;
 
-			bounceIsSpecular = false;
+			bounceIsSpecular = FALSE;
 
 			if (diffuseCount == 1 && blueNoise_rand() < 0.5)
 			{
@@ -259,7 +259,7 @@ vec3 CalculateRadiance( out vec3 objectNormal, out vec3 objectColor, out float o
 			mask *= diffuseCount == 1 ? 2.0 : 1.0;
 			mask *= weight;
 
-			sampleLight = true;
+			sampleLight = TRUE;
 			continue;
 
 		} // end if (hitType == DIFFUSE)
@@ -313,7 +313,7 @@ vec3 CalculateRadiance( out vec3 objectNormal, out vec3 objectColor, out float o
 			rayOrigin = x - nl * uEPS_intersect;
 
 			if (diffuseCount == 1)
-				bounceIsSpecular = true; // turn on refracting caustics
+				bounceIsSpecular = TRUE; // turn on refracting caustics
 
 			continue;
 
@@ -322,7 +322,7 @@ vec3 CalculateRadiance( out vec3 objectNormal, out vec3 objectColor, out float o
 
 		if (hitType == CLEARCOAT_DIFFUSE)  // Diffuse object underneath with ClearCoat on top
 		{
-			coatTypeIntersected = true;
+			coatTypeIntersected = TRUE;
 
 			nc = 1.0; // IOR of Air
 			nt = 1.4; // IOR of Clear Coat
@@ -344,7 +344,7 @@ vec3 CalculateRadiance( out vec3 objectNormal, out vec3 objectColor, out float o
 			mask *= TP;
 			mask *= hitColor;
 
-			bounceIsSpecular = false;
+			bounceIsSpecular = FALSE;
 
 			if (diffuseCount == 1 && blueNoise_rand() < 0.5)
 			{
@@ -364,7 +364,7 @@ vec3 CalculateRadiance( out vec3 objectNormal, out vec3 objectColor, out float o
 
 			// this check helps keep random noisy bright pixels from this clearCoat diffuse surface out of the possible previous refracted glass surface
 			if (bounces < 3) 
-				sampleLight = true;
+				sampleLight = TRUE;
 			continue;
 
 		} //end if (hitType == CLEARCOAT_DIFFUSE)
